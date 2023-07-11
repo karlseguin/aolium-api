@@ -18,6 +18,10 @@
 			.url = "https://github.com/karlseguin/validate.zig/archive/e12f3acbdb91afd55c199b13d3f339df3e101dee.tar.gz",
 			.hash = "1220aef0bdf88fc16370bd28d4ace59854db48a1b3da5422808cac704a5db293e763"
 		},
+		.zqlite = .{
+			.url = "https://github.com/karlseguin/zqlite.zig/archive/042b81ba383da1a9ea09599943bdb8974472594d.tar.gz",
+			.hash = "1220839a8b5cea771ecbde6f0d450b2b0574520b3e268f87ca4ce4991655acb72f6f"
+		},
 		.yazap = .{
 			.url = "https://github.com/PrajwalCH/yazap/archive/0039130d3fb995ad1fce8b8be2df25c23beba0f7.tar.gz",
 			.hash = "12204a340f0b6da027541245a3feacec00e29cd4e9cc4e666dec430e5cdadee033f4"

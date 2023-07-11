@@ -19,6 +19,7 @@ pub fn build(b: *std.Build) !void {
 	try modules.put("typed", b.dependency("typed", dep_opts).module("typed"));
 	try modules.put("validate", b.dependency("validate", dep_opts).module("validate"));
 	try modules.put("yazap", b.dependency("yazap", dep_opts).module("yazap"));
+	try modules.put("zqlite", b.dependency("zqlite", dep_opts).module("zqlite"));
 
 	// local libraries
 	try modules.put("uuid", b.addModule("uuid", .{.source_file = .{.path = "lib/uuid/uuid.zig"}}));
@@ -62,4 +63,26 @@ fn addLibs(step: *std.Build.CompileStep, modules: ModuleMap) !void {
 	while (it.next()) |m| {
 		step.addModule(m.key_ptr.*, m.value_ptr.*);
 	}
+
+	step.addCSourceFile("lib/sqlite3/sqlite3.c", &[_][]const u8{
+		"-DSQLITE_DQS=0",
+		"-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1",
+		"-DSQLITE_USE_ALLOCA=1",
+		"-DSQLITE_THREADSAFE=1",
+		"-DSQLITE_TEMP_STORE=3",
+		"-DSQLITE_ENABLE_API_ARMOR=1",
+		"-DSQLITE_ENABLE_UNLOCK_NOTIFY",
+		"-DSQLITE_ENABLE_UPDATE_DELETE_LIMIT=1",
+		"-DSQLITE_DEFAULT_FILE_PERMISSIONS=0600",
+		"-DSQLITE_OMIT_DECLTYPE=1",
+		"-DSQLITE_OMIT_DEPRECATED=1",
+		"-DSQLITE_OMIT_LOAD_EXTENSION=1",
+		"-DSQLITE_OMIT_PROGRESS_CALLBACK=1",
+		"-DSQLITE_OMIT_SHARED_CACHE",
+		"-DSQLITE_OMIT_TRACE=1",
+		"-DSQLITE_OMIT_UTF16=1",
+		"-DHAVE_USLEEP=1",
+	});
+	step.addIncludePath("lib/sqlite3/");
+	step.linkLibC();
 }

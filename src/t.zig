@@ -65,7 +65,9 @@ pub fn context(_: Context.Config) *Context {
 
 	const aa = arena.allocator();
 	const app = aa.create(App) catch unreachable;
-	app.* = App.init(allocator, .{}) catch unreachable;
+	app.* = App.init(allocator, .{
+		.root = "tests/db",
+	}) catch unreachable;
 
 	const ctx = allocator.create(Context) catch unreachable;
 	ctx.* = .{

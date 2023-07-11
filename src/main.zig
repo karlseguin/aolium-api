@@ -29,10 +29,10 @@ pub fn main() !void {
 	try logz.setup(allocator, config.logger);
 	try @import("init.zig").init(aa);
 
-	logz.info().ctx("Log.setup").
-		stringSafe("level", @tagName(logz.level())).
+	logz.info().ctx("init").
+		string("db_root", config.root).
 		boolean("http_log", config.log_http).
-		string("note", "alter via logger.level=LEVEL and log_http=BOOL flags").
+		stringSafe("log_level", @tagName(logz.level())).
 		log();
 
 	var app = try App.init(allocator, config);
@@ -47,6 +47,7 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 	var cmd = app.rootCommand();
 	try cmd.addArg(yazap.Arg.booleanOption("version", 'v', "Print the version and exit"));
 	try cmd.addArg(yazap.Arg.booleanOption("log_http", null, "Log http requests"));
+	try cmd.addArg(yazap.Arg.singleValueOption("root", null, "Root database path, can be absolute or relative, must exist (default: ./db"));
 	try cmd.addArg(yazap.Arg.singleValueOption("port", null, "Port to listen on (default: 6667)"));
 	try cmd.addArg(yazap.Arg.singleValueOption("instance_id", null, "If running multiple instances, giving each one a unique instance_id will improve the uniqueness of request_id (default: 0)"));
 	try cmd.addArg(yazap.Arg.singleValueOption("address", null, "Address to bind to (default: 127.0.0.1)"));
@@ -94,7 +95,20 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 		};
 	}
 
+	var root: [:0]u8 = undefined;
+	const path = args.getSingleValue("root") orelse "db/";
+	if (std.fs.path.isAbsolute(path)) {
+		root = try allocator.dupeZ(u8, path);
+	} else {
+		var buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+		const cwd = try std.os.getcwd(&buffer);
+		root = try std.fs.path.joinZ(allocator, &[_][]const u8{cwd, path});
+	}
+
+	try std.fs.cwd().makePath(root);
+
 	return .{
+		.root = root,
 		.port = port,
 		.address = address,
 		.log_http = log_http,
