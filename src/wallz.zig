@@ -13,6 +13,8 @@ pub const codes = struct {
 	pub const NOT_FOUND = 3;
 	pub const INVALID_JSON = 4;
 	pub const VALIDATION_ERROR = 5;
+	pub const INVALID_AUTHORIZATION = 6;
+	pub const EXPIRED_SESSION_ID = 7;
 };
 
 pub const testing = @import("t.zig");

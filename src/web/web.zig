@@ -43,14 +43,14 @@ pub fn start(app: *App) !void {
 // Since our dispatcher handles action errors, this should not happen unless
 // the dispatcher itself, or the underlying http framework, fails.
 fn errorHandler(_: *const Dispatcher, req: *httpz.Request, res: *httpz.Response, err: anyerror) void {
-	logz.err().err(err).ctx("errorHandler").string("path", req.url.raw).log();
-	errors.ServerError.write(res);
+	const code = errors.ServerError.write(res);
+	logz.err().err(err).ctx("errorHandler").string("path", req.url.raw).int("code", code).log();
 }
 
 // Not found specifically related to the method/path, this is passed to our
 // http framework as a fallback.
 fn routerNotFound(_: *const Dispatcher, _: *httpz.Request, res: *httpz.Response) !void {
-	errors.RouterNotFound.write(res);
+	_ = errors.RouterNotFound.write(res);
 }
 
 // An application-level 404, e.g. a call to DELETE /blah/:id and the :id wasn't
@@ -91,10 +91,11 @@ pub const Error = struct {
 		};
 	}
 
-	pub fn write(self: Error, res: *httpz.Response) void {
+	pub fn write(self: Error, res: *httpz.Response) i32 {
 		res.status = self.status;
 		res.content_type = httpz.ContentType.JSON;
 		res.body = self.body;
+		return self.code;
 	}
 };
 
@@ -104,6 +105,8 @@ pub const errors = struct {
 	pub const ServerError = Error.init(500, codes.INTERNAL_SERVER_ERROR_UNCAUGHT, "internal server error");
 	pub const RouterNotFound = Error.init(404, codes.ROUTER_NOT_FOUND, "not found");
 	pub const InvalidJson = Error.init(400, codes.INVALID_JSON, "invalid JSON");
+	pub const InvalidAuthorization = Error.init(401, codes.INVALID_AUTHORIZATION, "invalid authorization");
+	pub const ExpiredSessionId = Error.init(401, codes.EXPIRED_SESSION_ID, "expired session id");
 };
 
 const t = wallz.testing;
@@ -111,7 +114,7 @@ test "web: Error.write" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 
-	errors.ServerError.write(tc.web.res);
+	try t.expectEqual(0, errors.ServerError.write(tc.web.res));
 	try tc.web.expectStatus(500);
 	try tc.web.expectJson(.{.code = 0, .err = "internal server error"});
 }

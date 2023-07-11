@@ -229,23 +229,20 @@ const Inserter = struct {
 		const arena = self.ctx.arena;
 		const id = p.id orelse (uuid.allocHex(arena) catch unreachable);
 
-		var tenant = self.ctx.tenant();
-		const conn = tenant.getConn() catch unreachable;
-		defer tenant.releaseConn(conn);
-
-		const insert_sql =
-			\\ insert into pondz_sessions (id, user_id, expires)
-			\\ values ($1, $2, timezone('local', to_timestamp($3)))
+		const sql =
+			\\ insert into sessions (id, user_id, expires)
+			\\ values (?1, ?2, unixepoch() + ?3)
 		;
-		const insert_args = .{id, p.user_id orelse id, std.time.timestamp() + p.ttl};
-		switch (conn.queryZ(insert_sql, insert_args)) {
-			.ok => |rows| rows.deinit(),
-			.err => |err| {
-				std.log.err("factory pondz_sessions: {s}\n", .{err.desc});
-				err.deinit();
-				unreachable;
-			}
-		}
+		const args = .{id, p.user_id orelse id, p.ttl};
+
+		var app = self.ctx.app;
+		const conn = app.getAuthConn();
+		defer app.releaseAuthConn(conn);
+
+		conn.exec(sql, args) catch {
+			std.debug.print("inserter.sessions: {s}", .{conn.lastError()});
+			unreachable;
+		};
 		return id;
 	}
 };
