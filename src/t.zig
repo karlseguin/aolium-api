@@ -1,5 +1,7 @@
 const std = @import("std");
 const logz = @import("logz");
+const uuid = @import("uuid");
+const typed = @import("typed");
 const validate = @import("validate");
 const wallz = @import("wallz.zig");
 const web = @import("httpz").testing;
@@ -21,14 +23,12 @@ pub fn expectContains(expected: []const u8, actual :[]const u8) !void {
 		return error.StringContain;
 	}
 }
+pub fn expectDelta(expected: anytype, actual: @TypeOf(expected), delta: @TypeOf(expected)) !void {
+	try expectEqual(true, expected - delta <= actual);
+	try expectEqual(true, expected + delta >= actual);
+}
 pub const expectError = std.testing.expectError;
 pub const expectString = std.testing.expectEqualStrings;
-
-pub fn getRandom() std.rand.DefaultPrng {
-	var seed: u64 = undefined;
-	std.os.getrandom(std.mem.asBytes(&seed)) catch unreachable;
-	return std.rand.DefaultPrng.init(seed);
-}
 
 // We will _very_ rarely use this. Zig test doesn't have test lifecycle hooks. We
 // can setup globals on startup, but we can't clean this up properly. If we use
@@ -51,6 +51,13 @@ pub fn restoreLogs() void {
 pub fn setup() void {
 	restoreLogs();
 	@import("init.zig").init(leaking_allocator) catch unreachable;
+
+	// remove any test db
+	std.fs.cwd().deleteTree("tests/db") catch unreachable;
+	std.fs.cwd().makePath("tests/db") catch unreachable;
+
+	var tc = context(.{});
+	defer tc.deinit();
 }
 
 // Our Test.Context exists to help us write tests. It does this by:
@@ -76,6 +83,7 @@ pub fn context(_: Context.Config) *Context {
 		.arena = aa,
 		.app = app,
 		.web = web.init(.{}),
+		.insert = Inserter.init(ctx),
 	};
 	return ctx;
 }
@@ -85,6 +93,7 @@ pub const Context = struct {
 	_env: ?*Env,
 	app: *App,
 	web: web.Testing,
+	insert: Inserter,
 	arena: std.mem.Allocator,
 
 	const Config = struct {
@@ -119,5 +128,124 @@ pub const Context = struct {
 
 	pub fn expectInvalid(self: Context, expectation: anytype) !void {
 		return validate.testing.expectInvalid(expectation, self._env.?._validator.?);
+	}
+
+	pub fn reset(self: *Context) void {
+		self.web.deinit();
+		self.web = web.init(.{});
+	}
+
+	pub fn getAuthRow(self: Context, sql: []const u8, args: anytype) ?typed.Map {
+		const conn = self.app.getAuthConn();
+		defer self.app.releaseAuthConn(conn);
+		const row = conn.row(sql, args) catch unreachable orelse return null;
+		defer row.deinit();
+
+		const stmt = row.stmt;
+		const aa = self.arena;
+		const column_count: usize = @intCast(stmt.columnCount());
+
+		var m = typed.Map.init(aa);
+		for (0..column_count) |i| {
+			const name = aa.dupe(u8, std.mem.span(stmt.columnName(i))) catch unreachable;
+			const value = switch (stmt.columnType(i)) {
+				.int => typed.Value{.i64 = row.int(i)},
+				.float => typed.Value{.f64 = row.float(i)},
+				.text => typed.Value{.string = aa.dupe(u8, row.text(i)) catch unreachable},
+				.blob => typed.Value{.string = aa.dupe(u8, row.blob(i)) catch unreachable},
+				.null => typed.Value{.null = {}},
+				else => unreachable,
+			};
+			m.put(name, value) catch unreachable;
+		}
+
+		return m;
+	}
+};
+
+// A data factory for inserting data into a tenant's instance
+const Inserter = struct {
+	ctx: *Context,
+
+	fn init(ctx: *Context) Inserter {
+		return .{
+			.ctx = ctx,
+		};
+	}
+
+
+	const UserParams = struct {
+		username: ?[]const u8 = null,
+		password: ?[]const u8 = null,
+		active: bool = true,
+		reset_password: bool = false,
+	};
+
+	pub fn user(self: Inserter, p: UserParams) []const u8 {
+		const arena = self.ctx.arena;
+		const argon2 =  std.crypto.pwhash.argon2;
+
+		const id = uuid.allocHex(arena) catch unreachable;
+
+		var buf: [300]u8 = undefined;
+		const password = argon2.strHash(p.password orelse "password", .{
+			.allocator = arena,
+			.params = argon2.Params.fromLimits(1, 1024),
+		}, &buf) catch unreachable;
+
+
+		const sql =
+			\\ insert or replace into users (id, username, password, active, reset_password)
+			\\ values (?1, ?2, ?3, ?4, ?5)
+		;
+
+		const args = .{
+			id,
+			p.username orelse id,
+			password,
+			p.active,
+			p.reset_password,
+		};
+
+		var app = self.ctx.app;
+		const conn = app.getAuthConn();
+		defer app.releaseAuthConn(conn);
+
+		conn.exec(sql, args) catch {
+			std.debug.print("inserter.users: {s}", .{conn.lastError()});
+			unreachable;
+		};
+
+		return id;
+	}
+
+	const SessionParams = struct {
+		id: ?[]const u8 = null,
+		user_id: ?[]const u8 = null,
+		ttl: i64 = 120,
+	};
+
+	pub fn session(self: Inserter, p: SessionParams) []const u8 {
+		const arena = self.ctx.arena;
+		const id = p.id orelse (uuid.allocHex(arena) catch unreachable);
+
+		var tenant = self.ctx.tenant();
+		const conn = tenant.getConn() catch unreachable;
+		defer tenant.releaseConn(conn);
+
+		const insert_sql =
+			\\ insert into pondz_sessions (id, user_id, expires)
+			\\ values ($1, $2, timezone('local', to_timestamp($3)))
+		;
+		const insert_args = .{id, p.user_id orelse id, std.time.timestamp() + p.ttl};
+		switch (conn.queryZ(insert_sql, insert_args)) {
+			.ok => |rows| rows.deinit(),
+			.err => |err| {
+				std.log.err("factory pondz_sessions: {s}\n", .{err.desc});
+				err.deinit();
+				unreachable;
+			}
+		}
+		return id;
 	}
 };

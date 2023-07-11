@@ -53,6 +53,18 @@ fn routerNotFound(_: *const Dispatcher, _: *httpz.Request, res: *httpz.Response)
 	errors.RouterNotFound.write(res);
 }
 
+// An application-level 404, e.g. a call to DELETE /blah/:id and the :id wasn't
+// found. Always nice to include a brief description of exactly what wasn't found
+// to help developers.
+pub fn notFound(res: *httpz.Response, desc: []const u8) !void {
+	res.status = 404;
+	return res.json(.{
+		.desc = desc,
+		.err = "not found",
+		.code = wallz.codes.NOT_FOUND,
+	}, .{});
+}
+
 pub fn validateJson(req: *httpz.Request, v: *validate.Object(void), env: *Env) !typed.Map {
 	const body = (try req.body()) orelse return error.InvalidJson;
 
@@ -102,4 +114,13 @@ test "web: Error.write" {
 	errors.ServerError.write(tc.web.res);
 	try tc.web.expectStatus(500);
 	try tc.web.expectJson(.{.code = 0, .err = "internal server error"});
+}
+
+test "web: notFound" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	try notFound(tc.web.res, "no spice");
+	try tc.web.expectStatus(404);
+	try tc.web.expectJson(.{.code = 3, .err = "not found", .desc = "no spice"});
 }

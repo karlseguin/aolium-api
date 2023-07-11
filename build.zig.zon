@@ -6,6 +6,10 @@
 			.url = "https://github.com/karlseguin/http.zig/archive/f8ae97eb6a5e40a09dd2a7422d9d207073dc7cc3.tar.gz",
 			.hash = "1220c6650d97e18f993d0b99c5a926037b713d8941f46eff31e180a145d16db19343"
 		},
+		.cache = .{
+			.url = "https://github.com/karlseguin/cache.zig/archive/36da37f99daa92b200bbfa41086499b21f3c6a20.tar.gz",
+			.hash = "1220054c61a74eb0fbca65cea2619b6d2df99cb575f265c74d4c7a034092994a1941"
+		},
 		.logz = .{
 			.url = "https://github.com/karlseguin/log.zig/archive/1311afefe07b7d9fac120b76c924cbdc5c2696e7.tar.gz",
 			.hash = "1220307cc0985cf23884a20ef76fa07cf7f46b543655ac2f16595e29373e239e82d1"
@@ -19,8 +23,8 @@
 			.hash = "1220aef0bdf88fc16370bd28d4ace59854db48a1b3da5422808cac704a5db293e763"
 		},
 		.zqlite = .{
-			.url = "https://github.com/karlseguin/zqlite.zig/archive/042b81ba383da1a9ea09599943bdb8974472594d.tar.gz",
-			.hash = "1220839a8b5cea771ecbde6f0d450b2b0574520b3e268f87ca4ce4991655acb72f6f"
+			.url = "https://github.com/karlseguin/zqlite.zig/archive/a226b76a43760a704ec9b473975982cf654ab926.tar.gz",
+			.hash = "12204a07d39a84f6ce2deb00db501a6acd4ca9dc3b17bbf301e3d03501fd35be997d"
 		},
 		.yazap = .{
 			.url = "https://github.com/PrajwalCH/yazap/archive/0039130d3fb995ad1fce8b8be2df25c23beba0f7.tar.gz",

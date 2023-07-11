@@ -1,5 +1,6 @@
 pub const App = @import("app.zig").App;
 pub const Env = @import("env.zig").Env;
+pub const User = @import("user.zig").User;
 pub const Config = @import("config.zig").Config;
 
 pub const is_test = @import("builtin").is_test;
@@ -15,3 +16,15 @@ pub const codes = struct {
 };
 
 pub const testing = @import("t.zig");
+
+const logz = @import("logz");
+pub fn sqliteErr(ctx: []const u8, err: anyerror, conn: anytype, logger: logz.Logger) error{SqliteError} {
+	logger.level(.Error).
+		ctx(ctx).
+		err(err).
+		boolean("sqlite", true).
+		stringZ("desc", conn.lastError()).
+		log();
+
+	return error.SqliteError;
+}

@@ -8,8 +8,9 @@ pub fn run(conn: Conn) !void {
 		\\  id uuid not null primary key,
 		\\  username varchar not null,
 		\\  password varchar not null,
+		\\  active bool not null,
 		\\  reset_password bool not null,
-		\\  created timestamptz not null default(now()),
+		\\  created int not null default(unixepoch()),
 		\\  last_login timestamptz null
 		\\ )
 	);
@@ -23,7 +24,7 @@ pub fn run(conn: Conn) !void {
 		\\  id varchar not null primary key,
 		\\  user_id uuid not null,
 		\\  expires timestamptz not null,
-		\\  created timestamptz not null default(now())
+		\\  created int not null default(unixepoch())
 		\\ )
 	);
 }
