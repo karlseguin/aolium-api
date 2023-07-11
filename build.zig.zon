@@ -1,0 +1,26 @@
+.{
+	.name = "wallz",
+	.version = "0.0.0",
+	.dependencies = .{
+		.httpz = .{
+			.url = "https://github.com/karlseguin/http.zig/archive/f8ae97eb6a5e40a09dd2a7422d9d207073dc7cc3.tar.gz",
+			.hash = "1220c6650d97e18f993d0b99c5a926037b713d8941f46eff31e180a145d16db19343"
+		},
+		.logz = .{
+			.url = "https://github.com/karlseguin/log.zig/archive/1311afefe07b7d9fac120b76c924cbdc5c2696e7.tar.gz",
+			.hash = "1220307cc0985cf23884a20ef76fa07cf7f46b543655ac2f16595e29373e239e82d1"
+		},
+		.typed = .{
+			.url = "https://github.com/karlseguin/typed.zig/archive/d35faf3f6651575a39aeda77dae51afd266b2c8b.tar.gz",
+			.hash = "12209eddbf8ef61ee088cdec3fe5d1dd7cb3213abf95211dc9ae46eeac0835bb5c92"
+		},
+		.validate = .{
+			.url = "https://github.com/karlseguin/validate.zig/archive/e12f3acbdb91afd55c199b13d3f339df3e101dee.tar.gz",
+			.hash = "1220aef0bdf88fc16370bd28d4ace59854db48a1b3da5422808cac704a5db293e763"
+		},
+		.yazap = .{
+			.url = "https://github.com/PrajwalCH/yazap/archive/0039130d3fb995ad1fce8b8be2df25c23beba0f7.tar.gz",
+			.hash = "12204a340f0b6da027541245a3feacec00e29cd4e9cc4e666dec430e5cdadee033f4"
+		},
+	},
+}
