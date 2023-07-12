@@ -17,13 +17,14 @@ var register_validator: *validate.Object(void) = undefined;
 
 pub fn init(builder: *validate.Builder(void)) void {
 	register_validator = builder.object(&.{
-		builder.field("username", builder.string(.{.required = true, .min = 4, .max = 30})),
-		builder.field("password", builder.string(.{.required = true, .min = 6, .max = 70})),
+		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = wallz.MAX_USERNAME_LEN})),
+		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6, .max = 70})),
 	}, .{});
 }
 
 pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, register_validator, env);
+	const username = input.get([]u8, "username").?;
 
 	var pw_buf: [128]u8 = undefined;
 	const hashed_password = try argon2.strHash(input.get([]u8, "password").?, .{
@@ -36,7 +37,7 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		\\ insert into users (username, password, active, reset_password)
 		\\ values (?1, ?2, ?3, ?4)
 	;
-	const args = .{input.get([]u8, "username").?, hashed_password, true, false};
+	const args = .{username, hashed_password, true, false};
 
 	const app = env.app;
 	const conn = app.getAuthConn();
@@ -54,11 +55,15 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		return error.Validation;
 	};
 
-	return login.createSession(env, conn, conn.lastInsertedRowId(), false, res);
+	return login.createSession(env, conn, .{
+		.id = conn.lastInsertedRowId(),
+		.username = username,
+		.reset_password = false,
+	}, res);
 }
 
 const t = wallz.testing;
-test "auth.register empty body" {
+test "auth.register: empty body" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 	try t.expectError(error.InvalidJson, handler(tc.env(), tc.web.req, tc.web.res));

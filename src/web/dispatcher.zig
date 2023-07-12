@@ -16,6 +16,8 @@ var request_id: u32 = 0;
 pub const Dispatcher = struct {
 	app: *App,
 
+	requires_user: bool = false,
+
 	// whether or not to log HTTP request info (method, path, time, ...)
 	log_http: bool = false,
 
@@ -25,49 +27,45 @@ pub const Dispatcher = struct {
 		const app = self.app;
 		const encoded_request_id = encodeRequestId(app.config.instance_id, @atomicRmw(u32, &request_id, .Add, 1, .Monotonic));
 		var logger = logz.logger().stringSafe("$rid", &encoded_request_id).multiuse();
-		defer logger.release();
-
-		var code: i32 = 0;
-		var log_request = self.log_http;
 
 		var env = Env{
 			.app = app,
-			.user = null,
 			.logger = logger,
 		};
 		defer env.deinit();
 
-		const user_id = dispatchAction(&env, action, req, res) catch |err| blk: {
-			switch (err) {
-				error.InvalidAuthorization => code = web.errors.InvalidAuthorization.write(res),
-				error.ExpiredSessionId => code = web.errors.ExpiredSessionId.write(res),
-				error.InvalidJson => code = web.errors.InvalidJson.write(res),
-				error.Validation => {
-					code = wallz.codes.VALIDATION_ERROR;
-					res.status = 400;
-					try res.json(.{
-						.err = "validation error",
-						.code = code,
-						.validation = env._validator.?.errors(),
-					}, .{.emit_null_optional_fields = false});
-				},
-				else => {
-					code = wallz.codes.INTERNAL_SERVER_ERROR_CAUGHT;
-					const error_id = try uuid.allocHex(res.arena);
+		var code: i32 = 0;
+		var log_request = self.log_http;
 
-					res.status = 500;
-					res.header("Error-Id", error_id);
-					try res.json(.{
-						.code = code,
-						.error_id = error_id,
-						.err = "intezrnal server error",
-					}, .{});
+		self.doDispatch(action, req, res, &env) catch |err| switch (err) {
+			error.InvalidAuthorization => code = web.errors.InvalidAuthorization.write(res),
+			error.ExpiredSessionId => code = web.errors.ExpiredSessionId.write(res),
+			error.InvalidJson => code = web.errors.InvalidJson.write(res),
+			error.UserRequired => code = web.errors.AccessDenied.write(res),
+			error.Validation => {
+				code = wallz.codes.VALIDATION_ERROR;
+				res.status = 400;
+				try res.json(.{
+					.err = "validation error",
+					.code = code,
+					.validation = env._validator.?.errors(),
+				}, .{.emit_null_optional_fields = false});
+			},
+			else => {
+				code = wallz.codes.INTERNAL_SERVER_ERROR_CAUGHT;
+				const error_id = try uuid.allocHex(res.arena);
 
-					log_request = true;
-					_ = logger.stringSafe("error_id", error_id).err(err);
-				},
-			}
-			break :blk 0;
+				res.status = 500;
+				res.header("Error-Id", error_id);
+				try res.json(.{
+					.code = code,
+					.error_id = error_id,
+					.err = "intezrnal server error",
+				}, .{});
+
+				log_request = true;
+				_ = logger.stringSafe("error_id", error_id).err(err);
+			},
 		};
 
 		if (log_request) {
@@ -77,26 +75,25 @@ pub const Dispatcher = struct {
 				string("path", req.url.path).
 				int("status", res.status).
 				int("code", code).
-				int("uid", user_id).
+				int("uid", if (env.user) |u| u.id else 0).
 				int("ms", std.time.milliTimestamp() - start_time).
 				log();
 		}
 	}
-};
 
-pub fn dispatchAction(env: *Env, action: httpz.Action(*Env), req: *httpz.Request, res: *httpz.Response) !i64 {
-	const user_entry = try loadUser(env.app, req.header("authorization"));
-	defer if (user_entry) |ue| ue.release();
+	fn doDispatch(self: *const Dispatcher, action: httpz.Action(*Env), req: *httpz.Request, res: *httpz.Response, env: *Env) !void {
+		const user_entry = try loadUser(env.app, req.header("authorization"));
+		env._cached_user_entry = user_entry;
 
-	var user_id: i64 = 0;
-	if (user_entry) |ue| {
-		const user = ue.value;
-		env.user = user;
-		user_id = user.id;
+		if (user_entry) |ue| {
+			env.user = ue.value;
+		} else if (self.requires_user) {
+			return error.UserRequired;
+		}
+
+		try action(env, req, res);
 	}
-	try action(env, req, res);
-	return user_id;
-}
+};
 
 fn loadUser(app: *App, auth_header: ?[]const u8) !?*cache.Entry(User) {
 	const h = auth_header orelse return null;
@@ -113,7 +110,7 @@ fn loadUserFromToken(app: *App, token: []const u8) !?User {
 	defer app.releaseAuthConn(conn);
 
 	const sql =
-		\\ select s.user_id, s.expires
+		\\ select s.user_id, s.expires, u.username
 		\\ from sessions s join users u on s.user_id = u.id
 		\\ where u.active and s.id = $1
 	;
@@ -127,7 +124,7 @@ fn loadUserFromToken(app: *App, token: []const u8) !?User {
 		return error.ExpiredSessionId;
 	}
 
-	return User.init(row.int(0));
+	return User.init(row.int(0), row.text(2));
 }
 
 fn encodeRequestId(instance_id: u8, rid: u32) [8]u8 {
@@ -209,9 +206,19 @@ test "dispatcher: load user" {
 	var dispatcher = Dispatcher{.app = tc.app};
 
 	{
-		// no authorization header, no user
+		// no authorization header on public route, no problem
 		try dispatcher.dispatch(testEchoUser, tc.web.req, tc.web.res);
+		try tc.web.expectStatus(200);
 		try tc.web.expectJson(.{.is_null = true});
+	}
+
+	{
+		tc.reset();
+		// no authorization header on non-public route,  problem
+		const d = Dispatcher{.app = tc.app, .requires_user = true};
+		try d.dispatch(testErrorAction, tc.web.req, tc.web.res);
+		try tc.web.expectStatus(401);
+		try tc.web.expectJson(.{.code = 8});
 	}
 
 	{

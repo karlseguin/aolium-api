@@ -8,4 +8,5 @@ pub fn init(aa: std.mem.Allocator) !void {
 	const builder = try aa.create(validate.Builder(void));
 	builder.* = try validate.Builder(void).init(aa);
 	try @import("web/auth/_auth.zig").init(builder);
+	try @import("web/posts/_posts.zig").init(builder);
 }

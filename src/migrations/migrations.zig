@@ -11,6 +11,7 @@ pub const Migration = struct {
 };
 
 const auth_migrations = @import("auth/migrations.zig").migrations;
+const data_migrations = @import("data/migrations.zig").migrations;
 
 // A micro-optimizations. Storing our migrations in an array means that
 // we don't have to scan the array to find any missing migrations. All pending
@@ -23,17 +24,26 @@ comptime {
 	for (auth_migrations, 0..) |m, i| {
 		if (m.id != i + 1) @compileError("invalid auth migration order");
 	}
+
+	for (data_migrations, 0..) |m, i| {
+		if (m.id != i + 1) @compileError("invalid data migration order");
+	}
 }
 
 pub fn migrateAuth(conn: zqlite.Conn) !void {
-	return migrate(&auth_migrations, "auth", conn);
+	var logger = logz.logger().stringSafe("type", "auth").multiuse();
+	defer logger.release();
+	return migrate(&auth_migrations, conn, logger);
+}
+
+pub fn migrateData(conn: zqlite.Conn, shard: usize) !void {
+	var logger = logz.logger().stringSafe("type", "data").int("shard", shard).multiuse();
+	defer logger.release();
+	return migrate(&data_migrations, conn, logger);
 }
 
 // runs any pending migration against the connection
-fn migrate(migrations: []const Migration, tpe: []const u8, conn: zqlite.Conn) !void {
-	var logger = logz.logger().stringSafe("type", tpe).multiuse();
-	defer logger.release();
-
+fn migrate(migrations: []const Migration, conn: zqlite.Conn, logger: logz.Logger) !void {
 	var mconn = Conn{
 		.conn = conn,
 		.logger = logger,

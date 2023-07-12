@@ -15,13 +15,14 @@ var login_validator: *validate.Object(void) = undefined;
 
 pub fn init(builder: *validate.Builder(void)) void {
 	login_validator = builder.object(&.{
-		builder.field("username", builder.string(.{.required = true, .min = 1})),
-		builder.field("password", builder.string(.{.required = true, .min = 1})),
+		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 1})),
+		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 1})),
 	}, .{});
 }
 
 pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, login_validator, env);
+	const username = input.get([]u8, "username").?;
 
 	// load the user row
 	const sql =
@@ -29,7 +30,7 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		\\ from users
 		\\ where lower(username) = lower(?1) and active
 	;
-	const args = .{input.get([]u8, "username").?};
+	const args = .{username};
 
 	const app = env.app;
 	const conn = app.getAuthConn();
@@ -51,10 +52,17 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		};
 	}
 
-	return createSession(env, conn, row.int(0), row.int(2) == 1, res);
+	return createSession(env, conn, .{
+		.id = row.int(0),
+		.username = username,
+		.reset_password = row.int(2) == 1,
+	}, res);
 }
 
-pub fn createSession(env: *wallz.Env, conn: zqlite.Conn, user_id: i64, reset_password: bool, res: *httpz.Response) !void {
+// used by register.zig
+pub fn createSession(env: *wallz.Env, conn: zqlite.Conn, user_data: anytype, res: *httpz.Response) !void {
+	const user_id = user_data.id;
+
 	var session_id_buf: [20]u8 = undefined;
 	std.crypto.random.bytes(&session_id_buf);
 	const session_id = std.fmt.bytesToHex(session_id_buf, .lower);
@@ -67,18 +75,18 @@ pub fn createSession(env: *wallz.Env, conn: zqlite.Conn, user_id: i64, reset_pas
 		};
 	}
 
-	const user = User.init(user_id);
+	const user = User.init(user_id, user_data.username);
 	try env.app.session_cache.put(&session_id, user, .{.ttl = 1800});
 
 	return res.json(.{
 		.user = user,
 		.session_id = session_id,
-		.reset_password = reset_password,
+		.reset_password = user_data.reset_password,
 	}, .{});
 }
 
 const t = wallz.testing;
-test "auth.login empty body" {
+test "auth.login: empty body" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 	try t.expectError(error.InvalidJson, handler(tc.env(), tc.web.req, tc.web.res));

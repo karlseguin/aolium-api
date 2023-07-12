@@ -8,6 +8,7 @@ const web = @import("httpz").testing;
 
 const App = wallz.App;
 const Env = wallz.Env;
+const User = wallz.User;
 const Allocator = std.mem.Allocator;
 pub const allocator = std.testing.allocator;
 
@@ -91,6 +92,7 @@ pub fn context(_: Context.Config) *Context {
 pub const Context = struct {
 	_arena: *std.heap.ArenaAllocator,
 	_env: ?*Env,
+	_user: ?User = null,
 	app: *App,
 	web: web.Testing,
 	insert: Inserter,
@@ -112,6 +114,13 @@ pub const Context = struct {
 		allocator.destroy(self);
 	}
 
+	pub fn user(self: *Context, config: anytype) void {
+		self._user = User{
+			.id = config.id,
+			.shard_id = 0,
+		};
+	}
+
 	pub fn env(self: *Context) *Env {
 		if (self._env) |e| {
 			return e;
@@ -120,6 +129,7 @@ pub const Context = struct {
 		const e = allocator.create(Env) catch unreachable;
 		e.* = Env{
 			.app = self.app,
+			.user = self._user,
 			.logger = logz.logger().multiuse(),
 		};
 		self._env = e;
@@ -138,6 +148,16 @@ pub const Context = struct {
 	pub fn getAuthRow(self: Context, sql: []const u8, args: anytype) ?typed.Map {
 		const conn = self.app.getAuthConn();
 		defer self.app.releaseAuthConn(conn);
+		return self.getRow(sql, args, conn);
+	}
+
+	pub fn getDataRow(self: Context, sql: []const u8, args: anytype) ?typed.Map {
+		const conn = self.app.getDataConn(0);
+		defer self.app.releaseDataConn(conn, 0);
+		return self.getRow(sql, args, conn);
+	}
+
+	pub fn getRow(self: Context, sql: []const u8, args: anytype, conn: anytype) ?typed.Map {
 		const row = conn.row(sql, args) catch unreachable orelse return null;
 		defer row.deinit();
 

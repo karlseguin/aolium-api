@@ -12,6 +12,7 @@ const Dispatcher = @import("dispatcher.zig").Dispatcher;
 
 // handlers
 const auth = @import("auth/_auth.zig");
+const posts = @import("posts/_posts.zig");
 
 pub fn start(app: *App) !void {
 	const config = app.config;
@@ -26,12 +27,21 @@ pub fn start(app: *App) !void {
 	server.dispatcher(Dispatcher.dispatch);
 
 	const router = server.router();
-	var routes = router.group("/", .{.ctx = &Dispatcher{
+	var public_routes = router.group("/", .{.ctx = &Dispatcher{
 		.app = app,
+		.requires_user = false,
 		.log_http = config.log_http,
 	}});
-	routes.post("/auth/login", auth.login);
-	routes.post("/auth/register", auth.register);
+	public_routes.post("/auth/login", auth.login);
+	public_routes.post("/auth/register", auth.register);
+
+	var logged_in_routes = router.group("/", .{.ctx = &Dispatcher{
+		.app = app,
+		.requires_user = true,
+		.log_http = config.log_http,
+	}});
+
+	logged_in_routes.post("/posts", posts.create);
 
 	var http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});
 	logz.info().ctx("http").string("address", http_address).log();
@@ -108,6 +118,7 @@ pub const errors = struct {
 	pub const InvalidJson = Error.init(400, codes.INVALID_JSON, "invalid JSON");
 	pub const InvalidAuthorization = Error.init(401, codes.INVALID_AUTHORIZATION, "invalid authorization");
 	pub const ExpiredSessionId = Error.init(401, codes.EXPIRED_SESSION_ID, "expired session id");
+	pub const AccessDenied = Error.init(401, codes.ACCESS_DENIED, "access denied");
 };
 
 const t = wallz.testing;

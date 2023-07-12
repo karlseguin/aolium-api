@@ -1,4 +1,5 @@
 const logz = @import("logz");
+const cache = @import("cache");
 const wallz = @import("wallz.zig");
 const validate = @import("validate");
 
@@ -6,6 +7,11 @@ const App = wallz.App;
 const User = wallz.User;
 
 pub const Env = struct {
+	// If a user is loaded, it comes from the cache, which uses reference counting
+	// to release entries in a thread-safe way. The env is the owner of the cache
+	// entry for the user (if we have a user).s
+	_cached_user_entry: ?*cache.Entry(User) = null,
+
 	app: *App,
 
 	user: ?User = null,
@@ -18,6 +24,12 @@ pub const Env = struct {
 	logger: logz.Logger,
 
 	pub fn deinit(self: Env) void {
+		self.logger.release();
+
+		if (self._cached_user_entry) |ue| {
+			ue.release();
+		}
+
 		if (self._validator) |val| {
 			self.app.validators.release(val);
 		}

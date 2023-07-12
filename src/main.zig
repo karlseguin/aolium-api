@@ -31,7 +31,7 @@ pub fn main() !void {
 
 	logz.info().ctx("init").
 		string("db_root", config.root).
-		boolean("http_log", config.log_http).
+		boolean("log_http", config.log_http).
 		stringSafe("log_level", @tagName(logz.level())).
 		log();
 
