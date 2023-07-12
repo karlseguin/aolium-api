@@ -1,6 +1,7 @@
 const std = @import("std");
 const httpz = @import("httpz");
 const typed = @import("typed");
+const zqlite = @import("zqlite");
 const validate = @import("validate");
 const auth = @import("_auth.zig");
 
@@ -22,10 +23,6 @@ pub fn init(builder: *validate.Builder(void)) void {
 pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, login_validator, env);
 
-	const app = env.app;
-	const conn = app.getAuthConn();
-	defer app.releaseAuthConn(conn);
-
 	// load the user row
 	const sql =
 		\\ select id, password, reset_password
@@ -33,6 +30,11 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		\\ where lower(username) = lower(?1) and active
 	;
 	const args = .{input.get([]u8, "username").?};
+
+	const app = env.app;
+	const conn = app.getAuthConn();
+	defer app.releaseAuthConn(conn);
+
 	const row = conn.row(sql, args) catch |err| {
 		return wallz.sqliteErr("login.select", err, conn, env.logger);
 	} orelse {
@@ -49,7 +51,10 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		};
 	}
 
-	const user_id = row.int(0);
+	return createSession(env, conn, row.int(0), row.int(2) == 1, res);
+}
+
+pub fn createSession(env: *wallz.Env, conn: zqlite.Conn, user_id: i64, reset_password: bool, res: *httpz.Response) !void {
 	var session_id_buf: [20]u8 = undefined;
 	std.crypto.random.bytes(&session_id_buf);
 	const session_id = std.fmt.bytesToHex(session_id_buf, .lower);
@@ -58,18 +63,17 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		// create the session
 		const session_sql = "insert into sessions (id, user_id, expires) values (?1, ?2, unixepoch() + 86400)";
 		conn.exec(session_sql,.{&session_id, user_id}) catch |err| {
-			return wallz.sqliteErr("login.session", err, conn, env.logger);
+			return wallz.sqliteErr("sessions.insert", err, conn, env.logger);
 		};
 	}
 
 	const user = User.init(user_id);
-	try app.session_cache.put(&session_id, user, .{.ttl = 1800});
+	try env.app.session_cache.put(&session_id, user, .{.ttl = 1800});
 
-	res.status = 201;
 	return res.json(.{
 		.user = user,
 		.session_id = session_id,
-		.reset_password = row.int(2) == 1,
+		.reset_password = reset_password,
 	}, .{});
 }
 
@@ -151,13 +155,13 @@ test "auth.login" {
 		tc.reset();
 		tc.web.json(.{.username = "leto", .password = "ghanima"});
 		try handler(tc.env(), tc.web.req, tc.web.res);
-		try tc.web.expectStatus(201);
+		try tc.web.expectStatus(200);
 		try tc.web.expectJson(.{.user = .{.id = user_id1}, .reset_password = false});
 
 		const body = (try tc.web.getJson()).object;
 		const session_id = body.get("session_id").?.string;
 
-		const row = tc.getAuthRow("select user_id, expires from sessions where id = $1", .{session_id}).?;
+		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
 		try t.expectEqual(user_id1, row.get(i64, "user_id").?);
 		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
 	}
@@ -167,13 +171,13 @@ test "auth.login" {
 		tc.reset();
 		tc.web.json(.{.username = "PAUL", .password = "chani"});
 		try handler(tc.env(), tc.web.req, tc.web.res);
-		try tc.web.expectStatus(201);
+		try tc.web.expectStatus(200);
 		try tc.web.expectJson(.{.user = .{.id = user_id2}, .reset_password = true});
 
 		const body = (try tc.web.getJson()).object;
 		const session_id = body.get("session_id").?.string;
 
-		const row = tc.getAuthRow("select user_id, expires from sessions where id = $1", .{session_id}).?;
+		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
 		try t.expectEqual(user_id2, row.get(i64, "user_id").?);
 		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
 	}

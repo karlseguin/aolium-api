@@ -17,6 +17,10 @@ pub const codes = struct {
 	pub const EXPIRED_SESSION_ID = 7;
 };
 
+pub const val = struct {
+	pub const USERNAME_IN_USE = 100;
+};
+
 pub const testing = @import("t.zig");
 
 const logz = @import("logz");

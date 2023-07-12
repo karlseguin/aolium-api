@@ -173,7 +173,6 @@ const Inserter = struct {
 		};
 	}
 
-
 	const UserParams = struct {
 		username: ?[]const u8 = null,
 		password: ?[]const u8 = null,

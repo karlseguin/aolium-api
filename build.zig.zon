@@ -19,12 +19,12 @@
 			.hash = "12209eddbf8ef61ee088cdec3fe5d1dd7cb3213abf95211dc9ae46eeac0835bb5c92"
 		},
 		.validate = .{
-			.url = "https://github.com/karlseguin/validate.zig/archive/e12f3acbdb91afd55c199b13d3f339df3e101dee.tar.gz",
-			.hash = "1220aef0bdf88fc16370bd28d4ace59854db48a1b3da5422808cac704a5db293e763"
+			.url = "https://github.com/karlseguin/validate.zig/archive/68d834275e46fb51b7a01dfe39ea16815d7195df.tar.gz",
+			.hash = "1220ec4a05ada58225de42c7f771695f51650f159e02539192466b28d264bb291491"
 		},
 		.zqlite = .{
-			.url = "https://github.com/karlseguin/zqlite.zig/archive/a226b76a43760a704ec9b473975982cf654ab926.tar.gz",
-			.hash = "12204a07d39a84f6ce2deb00db501a6acd4ca9dc3b17bbf301e3d03501fd35be997d"
+			.url = "https://github.com/karlseguin/zqlite.zig/archive/f6ac7b45a5f39adc8387722d5f287580c3a34bf8.tar.gz",
+			.hash = "1220d621a65872e9cde95b98769c84c40e575d3994f6101f0361290d3ebf72f2b344"
 		},
 		.yazap = .{
 			.url = "https://github.com/PrajwalCH/yazap/archive/0039130d3fb995ad1fce8b8be2df25c23beba0f7.tar.gz",

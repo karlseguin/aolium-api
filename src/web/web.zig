@@ -31,6 +31,7 @@ pub fn start(app: *App) !void {
 		.log_http = config.log_http,
 	}});
 	routes.post("/auth/login", auth.login);
+	routes.post("/auth/register", auth.register);
 
 	var http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});
 	logz.info().ctx("http").string("address", http_address).log();
