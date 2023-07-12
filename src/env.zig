@@ -14,11 +14,10 @@ pub const Env = struct {
 	_validator: ?*validate.Context(void) = null,
 
 	// This logger has the "$rid=REQUEST_ID" attributes (and maybe more) automatically
-	// added to any generated log.
+	// added to any generated log. Managed by the dispatcher.
 	logger: logz.Logger,
 
 	pub fn deinit(self: Env) void {
-		self.logger.release();
 		if (self._validator) |val| {
 			self.app.validators.release(val);
 		}

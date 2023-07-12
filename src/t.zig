@@ -181,11 +181,9 @@ const Inserter = struct {
 		reset_password: bool = false,
 	};
 
-	pub fn user(self: Inserter, p: UserParams) []const u8 {
+	pub fn user(self: Inserter, p: UserParams) i64 {
 		const arena = self.ctx.arena;
 		const argon2 =  std.crypto.pwhash.argon2;
-
-		const id = uuid.allocHex(arena) catch unreachable;
 
 		var buf: [300]u8 = undefined;
 		const password = argon2.strHash(p.password orelse "password", .{
@@ -195,13 +193,12 @@ const Inserter = struct {
 
 
 		const sql =
-			\\ insert or replace into users (id, username, password, active, reset_password)
-			\\ values (?1, ?2, ?3, ?4, ?5)
+			\\ insert or replace into users (username, password, active, reset_password)
+			\\ values (?1, ?2, ?3, ?4)
 		;
 
 		const args = .{
-			id,
-			p.username orelse id,
+			p.username orelse "leto",
 			password,
 			p.active,
 			p.reset_password,
@@ -216,12 +213,12 @@ const Inserter = struct {
 			unreachable;
 		};
 
-		return id;
+		return conn.lastInsertedRowId();
 	}
 
 	const SessionParams = struct {
 		id: ?[]const u8 = null,
-		user_id: ?[]const u8 = null,
+		user_id: ?i64 = null,
 		ttl: i64 = 120,
 	};
 
@@ -233,7 +230,7 @@ const Inserter = struct {
 			\\ insert into sessions (id, user_id, expires)
 			\\ values (?1, ?2, unixepoch() + ?3)
 		;
-		const args = .{id, p.user_id orelse id, p.ttl};
+		const args = .{id, p.user_id orelse 0, p.ttl};
 
 		var app = self.ctx.app;
 		const conn = app.getAuthConn();

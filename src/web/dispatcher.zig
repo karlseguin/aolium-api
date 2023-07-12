@@ -21,95 +21,81 @@ pub const Dispatcher = struct {
 
 	pub fn dispatch(self: *const Dispatcher, action: httpz.Action(*Env), req: *httpz.Request, res: *httpz.Response) !void {
 		const start_time = std.time.milliTimestamp();
+
 		const app = self.app;
-
 		const encoded_request_id = encodeRequestId(app.config.instance_id, @atomicRmw(u32, &request_id, .Add, 1, .Monotonic));
-		var logger = logz.logger().stringSafe("$rid", &encoded_request_id);
+		var logger = logz.logger().stringSafe("$rid", &encoded_request_id).multiuse();
+		defer logger.release();
 
-		const user_entry = loadUser(app, req.header("authorization")) catch |err| switch (err) {
-			error.InvalidAuthorization => {
-				const code = web.errors.InvalidAuthorization.write(res);
-				if (self.log_http) logRequest(logger.int("code", code), req, res, start_time);
-				return;
-			},
-			error.ExpiredSessionId => {
-				const code = web.errors.ExpiredSessionId.write(res);
-				if (self.log_http) logRequest(logger.int("code", code), req, res, start_time);
-				return;
-			},
-			else => return err,
-		};
-		// user_entry comes from the cache, which uses referencing counting to safely
-		// manage items, so we need to signal when we're done with it
-		defer if (user_entry) |ue| ue.release();
-
-		const user = if (user_entry) |ue| blk: {
-			const u = ue.value;
-			_ = logger.string("$uid", u.id);
-			break :blk u;
-		} else null;
-
-		_ = logger.multiuse();
+		var code: i32 = 0;
+		var log_request = self.log_http;
 
 		var env = Env{
 			.app = app,
-			.user = user,
+			.user = null,
 			.logger = logger,
 		};
+		defer env.deinit();
 
-		action(&env, req, res) catch |err| switch (err) {
-			error.Validation => {
-				res.status = 400;
-				const code =  wallz.codes.VALIDATION_ERROR;
-				try res.json(.{
-					.err = "validation error",
-					.code = code,
-					.validation = env._validator.?.errors(),
-				}, .{.emit_null_optional_fields = false});
-				if (self.log_http) logRequest(logger.int("code", code), req, res, start_time);
-				return;
-			},
-			error.InvalidJson => {
-				const code = web.errors.InvalidJson.write(res);
-				if (self.log_http) logRequest(logger.int("code", code), req, res, start_time);
-				return;
-			},
-			else => {
-				const error_id = try uuid.allocHex(res.arena);
-				logger.
-					err(err).
-					level(.Error).
-					ctx("http.err").
-					stringSafe("eid", error_id).
-					stringSafe("m", @tagName(req.method)).
-					stringSafe("p", req.url.path).
-					int("us", std.time.microTimestamp() - start_time).
-					log();
+		const user_id = dispatchAction(&env, action, req, res) catch |err| blk: {
+			switch (err) {
+				error.InvalidAuthorization => code = web.errors.InvalidAuthorization.write(res),
+				error.ExpiredSessionId => code = web.errors.ExpiredSessionId.write(res),
+				error.InvalidJson => code = web.errors.InvalidJson.write(res),
+				error.Validation => {
+					code = wallz.codes.VALIDATION_ERROR;
+					res.status = 400;
+					try res.json(.{
+						.err = "validation error",
+						.code = code,
+						.validation = env._validator.?.errors(),
+					}, .{.emit_null_optional_fields = false});
+				},
+				else => {
+					code = wallz.codes.INTERNAL_SERVER_ERROR_CAUGHT;
+					const error_id = try uuid.allocHex(res.arena);
 
-				res.status = 500;
-				res.header("Error-Id", error_id);
-				return res.json(.{
-					.error_id = error_id,
-					.err = "internal server error",
-					.code = wallz.codes.INTERNAL_SERVER_ERROR_CAUGHT,
-				}, .{});
+					res.status = 500;
+					res.header("Error-Id", error_id);
+					try res.json(.{
+						.code = code,
+						.error_id = error_id,
+						.err = "intezrnal server error",
+					}, .{});
+
+					log_request = true;
+					_ = logger.stringSafe("error_id", error_id).err(err);
+				},
 			}
+			break :blk 0;
 		};
 
-		if (self.log_http) {
-			logRequest(logger, req, res, start_time);
+		if (log_request) {
+			logger.
+				stringSafe("@l", "REQ").
+				stringSafe("method", @tagName(req.method)).
+				string("path", req.url.path).
+				int("status", res.status).
+				int("code", code).
+				int("uid", user_id).
+				int("ms", std.time.milliTimestamp() - start_time).
+				log();
 		}
 	}
 };
 
-fn logRequest(logger: logz.Logger, req: *httpz.Request, res: *httpz.Response, start_time: i64) void {
-	logger.
-		stringSafe("@l", "REQ").
-		int("s", res.status).
-		stringSafe("m", @tagName(req.method)).
-		stringSafe("p", req.url.path).
-		int("us", std.time.milliTimestamp() - start_time).
-		log();
+pub fn dispatchAction(env: *Env, action: httpz.Action(*Env), req: *httpz.Request, res: *httpz.Response) !i64 {
+	const user_entry = try loadUser(env.app, req.header("authorization"));
+	defer if (user_entry) |ue| ue.release();
+
+	var user_id: i64 = 0;
+	if (user_entry) |ue| {
+		const user = ue.value;
+		env.user = user;
+		user_id = user.id;
+	}
+	try action(env, req, res);
+	return user_id;
 }
 
 fn loadUser(app: *App, auth_header: ?[]const u8) !?*cache.Entry(User) {
@@ -141,8 +127,7 @@ fn loadUserFromToken(app: *App, token: []const u8) !?User {
 		return error.ExpiredSessionId;
 	}
 
-	const user_id = row.text(0);
-	return try User.init(app.session_cache.allocator, user_id);
+	return User.init(row.int(0));
 }
 
 fn encodeRequestId(instance_id: u8, rid: u32) [8]u8 {

@@ -5,7 +5,7 @@ const Conn = migrations.Conn;
 pub fn run(conn: Conn) !void {
 	try conn.execNoArgs("migration.create.users",
 		\\ create table users (
-		\\  id uuid not null primary key,
+		\\  id integer primary key,
 		\\  username varchar not null,
 		\\  password varchar not null,
 		\\  active bool not null,
@@ -22,7 +22,7 @@ pub fn run(conn: Conn) !void {
 	try conn.execNoArgs("migration.create.sessions",
 		\\ create table sessions (
 		\\  id varchar not null primary key,
-		\\  user_id uuid not null,
+		\\  user_id integer not null,
 		\\  expires timestamptz not null,
 		\\  created int not null default(unixepoch())
 		\\ )

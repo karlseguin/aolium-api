@@ -49,7 +49,7 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		};
 	}
 
-	const user_id = row.text(0);
+	const user_id = row.int(0);
 	var session_id_buf: [20]u8 = undefined;
 	std.crypto.random.bytes(&session_id_buf);
 	const session_id = std.fmt.bytesToHex(session_id_buf, .lower);
@@ -62,7 +62,7 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		};
 	}
 
-	const user = try User.init(app.session_cache.allocator, user_id);
+	const user = User.init(user_id);
 	try app.session_cache.put(&session_id, user, .{.ttl = 1800});
 
 	res.status = 201;
@@ -158,7 +158,7 @@ test "auth.login" {
 		const session_id = body.get("session_id").?.string;
 
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = $1", .{session_id}).?;
-		try t.expectString(user_id1, row.get([]u8, "user_id").?);
+		try t.expectEqual(user_id1, row.get(i64, "user_id").?);
 		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
 	}
 
@@ -174,7 +174,7 @@ test "auth.login" {
 		const session_id = body.get("session_id").?.string;
 
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = $1", .{session_id}).?;
-		try t.expectString(user_id2, row.get([]u8, "user_id").?);
+		try t.expectEqual(user_id2, row.get(i64, "user_id").?);
 		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
 	}
 }
