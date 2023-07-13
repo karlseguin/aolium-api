@@ -19,6 +19,7 @@ pub fn start(app: *App) !void {
 	const allocator = app.allocator;
 
 	var server = try httpz.ServerCtx(*const Dispatcher, *Env).init(allocator, .{
+		.cors = config.cors,
 		.port = config.port,
 		.address = config.address,
 	}, undefined);
@@ -27,21 +28,27 @@ pub fn start(app: *App) !void {
 	server.dispatcher(Dispatcher.dispatch);
 
 	const router = server.router();
-	var public_routes = router.group("/", .{.ctx = &Dispatcher{
-		.app = app,
-		.requires_user = false,
-		.log_http = config.log_http,
-	}});
-	public_routes.post("/auth/login", auth.login);
-	public_routes.post("/auth/register", auth.register);
+	{
+		// publicly accessible API endpoints
+		var routes = router.group("/api/1/", .{.ctx = &Dispatcher{
+			.app = app,
+			.requires_user = false,
+			.log_http = config.log_http,
+		}});
+		routes.post("/auth/login", auth.login);
+		routes.post("/auth/register", auth.register);
+	}
 
-	var logged_in_routes = router.group("/", .{.ctx = &Dispatcher{
-		.app = app,
-		.requires_user = true,
-		.log_http = config.log_http,
-	}});
-
-	logged_in_routes.post("/posts", posts.create);
+	{
+		// routes that require a logged in user
+		var routes = router.group("/api/1/", .{.ctx = &Dispatcher{
+			.app = app,
+			.requires_user = true,
+			.log_http = config.log_http,
+		}});
+		routes.post("/posts", posts.create);
+		routes.post("/auth/logout", auth.logout);
+	}
 
 	var http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});
 	logz.info().ctx("http").string("address", http_address).log();
@@ -85,6 +92,12 @@ pub fn validateJson(req: *httpz.Request, v: *validate.Object(void), env: *Env) !
 		return error.Validation;
 	}
 	return input;
+}
+
+pub fn getSessionId(req: *httpz.Request) ?[]const u8 {
+	const header = req.header("authorization") orelse return null;
+	if (header.len < 10 or std.mem.startsWith(u8, header, "wallz ") == false) return null;
+	return header[6..];
 }
 
 // pre-generated error messages
@@ -138,4 +151,11 @@ test "web: notFound" {
 	try notFound(tc.web.res, "no spice");
 	try tc.web.expectStatus(404);
 	try tc.web.expectJson(.{.code = 3, .err = "not found", .desc = "no spice"});
+}
+
+test "web: getSessionID" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	try t.expectEqual(null, getSessionId(tc.web.req));
 }

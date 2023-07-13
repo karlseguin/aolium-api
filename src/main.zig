@@ -1,5 +1,6 @@
 const std = @import("std");
 const logz = @import("logz");
+const httpz = @import("httpz");
 const wallz = @import("wallz.zig");
 
 const App = wallz.App;
@@ -48,6 +49,7 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 	try cmd.addArg(yazap.Arg.booleanOption("version", 'v', "Print the version and exit"));
 	try cmd.addArg(yazap.Arg.booleanOption("log_http", null, "Log http requests"));
 	try cmd.addArg(yazap.Arg.singleValueOption("root", null, "Root database path, can be absolute or relative, must exist (default: ./db"));
+	try cmd.addArg(yazap.Arg.singleValueOption("cors", null, "Enables CORS header for the specified origin (default, none)"));
 	try cmd.addArg(yazap.Arg.singleValueOption("port", null, "Port to listen on (default: 6667)"));
 	try cmd.addArg(yazap.Arg.singleValueOption("instance_id", null, "If running multiple instances, giving each one a unique instance_id will improve the uniqueness of request_id (default: 0)"));
 	try cmd.addArg(yazap.Arg.singleValueOption("address", null, "Address to bind to (default: 127.0.0.1)"));
@@ -68,6 +70,8 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 	var address: []const u8 = "127.0.0.1";
 	var instance_id: u8 = 0;
 	var log_level = logz.Level.Info;
+	var cors: ?httpz.Config.CORS = null;
+
 	const log_http = args.containsArg("log_http");
 
 	if (args.getSingleValue("port")) |value| {
@@ -95,6 +99,15 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 		};
 	}
 
+	if (args.getSingleValue("cors")) |value| {
+		cors = httpz.Config.CORS{
+			.origin = value,
+			.max_age = "7200",
+			.headers = "content-type,authorization",
+			.methods = "GET,POST,PUT,DELETE",
+		};
+	}
+
 	var root: [:0]u8 = undefined;
 	const path = args.getSingleValue("root") orelse "db/";
 	if (std.fs.path.isAbsolute(path)) {
@@ -110,10 +123,12 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 	return .{
 		.root = root,
 		.port = port,
+		.cors = cors,
 		.address = address,
 		.log_http = log_http,
 		.instance_id = instance_id,
 		.logger = .{.level = log_level},
+
 	};
 }
 

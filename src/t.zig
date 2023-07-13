@@ -74,7 +74,11 @@ pub fn context(_: Context.Config) *Context {
 	const aa = arena.allocator();
 	const app = aa.create(App) catch unreachable;
 	app.* = App.init(allocator, .{
+		.port = 8517,
+		.address = "localhost",
 		.root = "tests/db",
+		.log_http = false,
+		.instance_id = 0,
 	}) catch unreachable;
 
 	const ctx = allocator.create(Context) catch unreachable;
@@ -141,6 +145,13 @@ pub const Context = struct {
 	}
 
 	pub fn reset(self: *Context) void {
+		if (self._env) |e| {
+			e.deinit();
+			allocator.destroy(e);
+			self._env = null;
+		}
+
+		self._user = null;
 		self.web.deinit();
 		self.web = web.init(.{});
 	}

@@ -4,4 +4,4 @@ t:
 
 .PHONY: s
 s:
-	zig build run -freference-trace -- --root /tmp/wallz/
+	zig build run -freference-trace -- --root /tmp/wallz/ --cors '*' --log_http

@@ -1,4 +1,5 @@
 const logz = @import("logz");
+const httpz = @import("httpz");
 const wallz = @import("wallz.zig");
 const validate = @import("validate");
 
@@ -9,17 +10,18 @@ pub const Config = struct {
 	// For improving the uniqueness of request_id in a multi-server setup
 	// The instance_id is part of the request_id, thus N instances will generate
 	// distinct request_ids from each other
-	instance_id: u8 = 0,
+	instance_id: u8,
 
 	// http port to listen on
-	port: u16 = 8439,
+	port: u16,
 
 	// address to bind to
-	address: []const u8 = "127.0.0.1",
+	address: []const u8,
 
 	// https://github.com/ziglang/zig/issues/15091
-	log_http: bool = if (wallz.is_test) false else true,
+	log_http: bool,
 
-	logger: logz.Config = logz.Config{},
-	validator: validate.Config = validate.Config{},
+	cors: ?httpz.Config.CORS = null,
+	logger: logz.Config = .{},
+	validator: validate.Config = .{},
 };

@@ -82,7 +82,7 @@ pub const Dispatcher = struct {
 	}
 
 	fn doDispatch(self: *const Dispatcher, action: httpz.Action(*Env), req: *httpz.Request, res: *httpz.Response, env: *Env) !void {
-		const user_entry = try loadUser(env.app, req.header("authorization"));
+		const user_entry = try loadUser(env.app, web.getSessionId(req));
 		env._cached_user_entry = user_entry;
 
 		if (user_entry) |ue| {
@@ -95,17 +95,15 @@ pub const Dispatcher = struct {
 	}
 };
 
-fn loadUser(app: *App, auth_header: ?[]const u8) !?*cache.Entry(User) {
-	const h = auth_header orelse return null;
-	if (h.len < 10 or std.mem.startsWith(u8, h, "wallz ") == false) return error.InvalidAuthorization;
-	const token = h[6..];
-	if (try app.session_cache.fetch(*App, token, loadUserFromToken, app, .{.ttl = 1800})) |entry| {
+fn loadUser(app: *App, optional_session_id: ?[]const u8) !?*cache.Entry(User) {
+	const session_id = optional_session_id orelse return null;
+	if (try app.session_cache.fetch(*App, session_id, loadUserFromSessionId, app, .{.ttl = 1800})) |entry| {
 		return entry;
 	}
-	return null;
+	return error.InvalidAuthorization;
 }
 
-fn loadUserFromToken(app: *App, token: []const u8) !?User {
+fn loadUserFromSessionId(app: *App, session_id: []const u8) !?User {
 	const conn = app.getAuthConn();
 	defer app.releaseAuthConn(conn);
 
@@ -115,7 +113,7 @@ fn loadUserFromToken(app: *App, token: []const u8) !?User {
 		\\ where u.active and s.id = $1
 	;
 
-	const row = conn.row(sql, .{token}) catch |err| {
+	const row = conn.row(sql, .{session_id}) catch |err| {
 		return wallz.sqliteErr("Dispatcher.loadUser", err, conn, logz.logger());
 	} orelse return null;
 	defer row.deinit();
@@ -222,18 +220,9 @@ test "dispatcher: load user" {
 	}
 
 	{
-		// non-walls token
-		tc.reset();
-		tc.web.header("authorization", "Bearer secret");
-		try dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
-		try tc.web.expectStatus(401);
-		try tc.web.expectJson(.{.code = 6});
-	}
-
-	{
 		// unknown token
 		tc.reset();
-		tc.web.header("authorization", "walls abc12345558");
+		tc.web.header("authorization", "wallz abc12345558");
 		try dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
 		try tc.web.expectStatus(401);
 		try tc.web.expectJson(.{.code = 6});
