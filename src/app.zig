@@ -1,16 +1,16 @@
 const std = @import("std");
 const cache = @import("cache");
 const zqlite = @import("zqlite");
-const wallz = @import("wallz.zig");
+const pondz = @import("pondz.zig");
 const migrations = @import("migrations/migrations.zig");
 
-const User = wallz.User;
-const Config = wallz.Config;
+const User = pondz.User;
+const Config = pondz.Config;
 
 const Allocator = std.mem.Allocator;
 const ValidatorPool = @import("validate").Pool;
 
-const DATA_POOL_COUNT = if (wallz.is_test) 2 else 64;
+const DATA_POOL_COUNT = if (pondz.is_test) 2 else 64;
 const DATA_POOL_MASK = DATA_POOL_COUNT - 1;
 
 pub const App = struct {
@@ -112,14 +112,14 @@ pub const App = struct {
 
 	// todo: either look this up or make it a consistent hash
 	pub fn getShardId(username: []const u8) usize {
-		var buf: [wallz.MAX_USERNAME_LEN]u8 = undefined;
+		var buf: [pondz.MAX_USERNAME_LEN]u8 = undefined;
 		const lower = std.ascii.lowerString(&buf, username);
 		const hash_code = std.hash.Wyhash.hash(0, lower);
 		return hash_code & DATA_POOL_MASK;
 	}
 };
 
-const t = wallz.testing;
+const t = pondz.testing;
 test "app: getShardId" {
 	try t.expectEqual(App.getShardId("Leto"), App.getShardId("leto"));
 	try t.expectEqual(App.getShardId("LETO"), App.getShardId("leTo"));

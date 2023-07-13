@@ -1,5 +1,5 @@
-const wallz = @import("wallz.zig");
-const App = wallz.App;
+const pondz = @import("pondz.zig");
+const App = pondz.App;
 
 pub const User = struct {
 	id: i64,

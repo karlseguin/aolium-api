@@ -3,9 +3,9 @@ const httpz = @import("httpz");
 const auth = @import("_auth.zig");
 
 const web = auth.web;
-const wallz = web.wallz;
+const pondz = web.pondz;
 
-pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const sql = "delete from sessions where id = ?1";
 	const args = .{web.getSessionId(req)};
 
@@ -14,12 +14,12 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	defer app.releaseAuthConn(conn);
 
 	conn.exec(sql, args) catch |err| {
-		return wallz.sqliteErr("login.select", err, conn, env.logger);
+		return pondz.sqliteErr("login.select", err, conn, env.logger);
 	};
 	res.status = 204;
 }
 
-const t = wallz.testing;
+const t = pondz.testing;
 
 test "auth.logout" {
 	var tc = t.context(.{});
@@ -30,7 +30,7 @@ test "auth.logout" {
 
 	{
 		// unknown session_id is no-op
-		tc.web.header("authorization", "wallz nope");
+		tc.web.header("authorization", "pondz nope");
 		try handler(tc.env(), tc.web.req, tc.web.res);
 		try tc.web.expectStatus(204);
 	}
@@ -38,7 +38,7 @@ test "auth.logout" {
 	{
 		// valid
 		tc.reset();
-		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "wallz {s}", .{sid1}));
+		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "pondz {s}", .{sid1}));
 		try handler(tc.env(), tc.web.req, tc.web.res);
 		try tc.web.expectStatus(204);
 

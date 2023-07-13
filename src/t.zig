@@ -3,12 +3,12 @@ const logz = @import("logz");
 const uuid = @import("uuid");
 const typed = @import("typed");
 const validate = @import("validate");
-const wallz = @import("wallz.zig");
+const pondz = @import("pondz.zig");
 const web = @import("httpz").testing;
 
-const App = wallz.App;
-const Env = wallz.Env;
-const User = wallz.User;
+const App = pondz.App;
+const Env = pondz.Env;
+const User = pondz.User;
 const Allocator = std.mem.Allocator;
 pub const allocator = std.testing.allocator;
 

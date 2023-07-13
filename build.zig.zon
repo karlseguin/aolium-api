@@ -1,5 +1,5 @@
 .{
-	.name = "wallz",
+	.name = "pondz",
 	.version = "0.0.0",
 	.dependencies = .{
 		.httpz = .{

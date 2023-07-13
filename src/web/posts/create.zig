@@ -4,7 +4,7 @@ const validate = @import("validate");
 const posts = @import("_posts.zig");
 
 const web = posts.web;
-const wallz = web.wallz;
+const pondz = web.pondz;
 
 var create_validator: *validate.Object(void) = undefined;
 
@@ -16,7 +16,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 	}, .{});
 }
 
-pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, create_validator, env);
 
 	const title = normalize(input.get([]u8, "title"));
@@ -27,7 +27,7 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		env._validator.?.addInvalidField(.{
 			.field = null,
 			.err = "either content or URL is required",
-			.code = wallz.val.EMPTY_POST,
+			.code = pondz.val.EMPTY_POST,
 		});
 		return error.Validation;
 	}
@@ -43,7 +43,7 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	defer app.releaseDataConn(conn, user.shard_id);
 
 	conn.exec(sql, args) catch |err| {
-		return wallz.sqliteErr("posts.insert", err, conn, env.logger);
+		return pondz.sqliteErr("posts.insert", err, conn, env.logger);
 	};
 
 	return res.json(.{
@@ -87,7 +87,7 @@ fn normalizeURL(allocator: std.mem.Allocator, optional_url: ?[]const u8) !?[]con
 	return prefixed;
 }
 
-const t = wallz.testing;
+const t = pondz.testing;
 test "posts normalizeURL" {
 	try t.expectEqual(null, normalizeURL(undefined, null));
 	try t.expectEqual(null, normalizeURL(undefined, ""));
@@ -124,7 +124,7 @@ test "posts.create: invalid input" {
 
 		tc.web.json(.{.x = 1});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
-		try tc.expectInvalid(.{.code = wallz.val.EMPTY_POST, .field = null});
+		try tc.expectInvalid(.{.code = pondz.val.EMPTY_POST, .field = null});
 	}
 
 	{

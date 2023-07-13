@@ -3,10 +3,10 @@ const logz = @import("logz");
 const httpz = @import("httpz");
 const typed = @import("typed");
 const validate = @import("validate");
-pub const wallz = @import("../wallz.zig");
+pub const pondz = @import("../pondz.zig");
 
-const App = wallz.App;
-const Env = wallz.Env;
+const App = pondz.App;
+const Env = pondz.Env;
 const Allocator = std.mem.Allocator;
 const Dispatcher = @import("dispatcher.zig").Dispatcher;
 
@@ -79,7 +79,7 @@ pub fn notFound(res: *httpz.Response, desc: []const u8) !void {
 	return res.json(.{
 		.desc = desc,
 		.err = "not found",
-		.code = wallz.codes.NOT_FOUND,
+		.code = pondz.codes.NOT_FOUND,
 	}, .{});
 }
 
@@ -96,7 +96,7 @@ pub fn validateJson(req: *httpz.Request, v: *validate.Object(void), env: *Env) !
 
 pub fn getSessionId(req: *httpz.Request) ?[]const u8 {
 	const header = req.header("authorization") orelse return null;
-	if (header.len < 10 or std.mem.startsWith(u8, header, "wallz ") == false) return null;
+	if (header.len < 10 or std.mem.startsWith(u8, header, "pondz ") == false) return null;
 	return header[6..];
 }
 
@@ -125,7 +125,7 @@ pub const Error = struct {
 
 // bunch of static errors that we can serialize at comptime
 pub const errors = struct {
-	const codes = wallz.codes;
+	const codes = pondz.codes;
 	pub const ServerError = Error.init(500, codes.INTERNAL_SERVER_ERROR_UNCAUGHT, "internal server error");
 	pub const RouterNotFound = Error.init(404, codes.ROUTER_NOT_FOUND, "not found");
 	pub const InvalidJson = Error.init(400, codes.INVALID_JSON, "invalid JSON");
@@ -134,7 +134,7 @@ pub const errors = struct {
 	pub const AccessDenied = Error.init(401, codes.ACCESS_DENIED, "access denied");
 };
 
-const t = wallz.testing;
+const t = pondz.testing;
 test "web: Error.write" {
 	var tc = t.context(.{});
 	defer tc.deinit();

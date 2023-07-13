@@ -7,22 +7,22 @@ const auth = @import("_auth.zig");
 const login = @import("login.zig");
 
 const web = auth.web;
-const wallz = web.wallz;
-const User = wallz.User;
+const pondz = web.pondz;
+const User = pondz.User;
 
 const argon2 = std.crypto.pwhash.argon2;
-const ARGON_CONFIG = if (wallz.is_test) argon2.Params.fromLimits(1, 1024) else argon2.Params.interactive_2id;
+const ARGON_CONFIG = if (pondz.is_test) argon2.Params.fromLimits(1, 1024) else argon2.Params.interactive_2id;
 
 var register_validator: *validate.Object(void) = undefined;
 
 pub fn init(builder: *validate.Builder(void)) void {
 	register_validator = builder.object(&.{
-		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = wallz.MAX_USERNAME_LEN})),
+		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN})),
 		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6, .max = 70})),
 	}, .{});
 }
 
-pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, register_validator, env);
 	const username = input.get([]u8, "username").?;
 
@@ -45,12 +45,12 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	conn.exec(sql, args) catch |err| {
 		if (!zqlite.isUnique(err)) {
-			return wallz.sqliteErr("register.insert", err, conn, env.logger);
+			return pondz.sqliteErr("register.insert", err, conn, env.logger);
 		}
 		env._validator.?.addInvalidField(.{
 			.field = "username",
 			.err = "is already taken",
-			.code = wallz.val.USERNAME_IN_USE,
+			.code = pondz.val.USERNAME_IN_USE,
 		});
 		return error.Validation;
 	};
@@ -62,7 +62,7 @@ pub fn handler(env: *wallz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	}, res);
 }
 
-const t = wallz.testing;
+const t = pondz.testing;
 test "auth.register: empty body" {
 	var tc = t.context(.{});
 	defer tc.deinit();
@@ -107,7 +107,7 @@ test "auth.register: duplicate username" {
 
 	tc.web.json(.{.username = "dupeusertest", .password = "1234567"});
 	try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
-	try tc.expectInvalid(.{.code = wallz.val.USERNAME_IN_USE, .field = "username"});
+	try tc.expectInvalid(.{.code = pondz.val.USERNAME_IN_USE, .field = "username"});
 }
 
 test "auth.register" {

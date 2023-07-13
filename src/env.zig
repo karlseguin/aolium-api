@@ -1,10 +1,10 @@
 const logz = @import("logz");
 const cache = @import("cache");
-const wallz = @import("wallz.zig");
+const pondz = @import("pondz.zig");
 const validate = @import("validate");
 
-const App = wallz.App;
-const User = wallz.User;
+const App = pondz.App;
+const User = pondz.User;
 
 pub const Env = struct {
 	// If a user is loaded, it comes from the cache, which uses reference counting

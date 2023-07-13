@@ -1,10 +1,10 @@
 const std = @import("std");
 const logz = @import("logz");
 const httpz = @import("httpz");
-const wallz = @import("wallz.zig");
+const pondz = @import("pondz.zig");
 
-const App = wallz.App;
-const Config = wallz.Config;
+const App = pondz.App;
+const Config = pondz.Config;
 const Allocator = std.mem.Allocator;
 
 pub fn main() !void {
@@ -40,10 +40,10 @@ pub fn main() !void {
 	try @import("web/web.zig").start(&app);
 }
 
-fn parseArgs(allocator: Allocator) !wallz.Config {
+fn parseArgs(allocator: Allocator) !pondz.Config {
 	const yazap = @import("yazap");
 
-	var app = yazap.App.init(allocator, "wallz", "A wallz server");
+	var app = yazap.App.init(allocator, "pondz", "A pondz server");
 
 	var cmd = app.rootCommand();
 	try cmd.addArg(yazap.Arg.booleanOption("version", 'v', "Print the version and exit"));
@@ -62,7 +62,7 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 	};
 
 	if (args.containsArg("version")) {
-		try std.io.getStdOut().writer().print("{s}", .{wallz.version});
+		try std.io.getStdOut().writer().print("{s}", .{pondz.version});
 		std.os.exit(0);
 	}
 
@@ -132,7 +132,7 @@ fn parseArgs(allocator: Allocator) !wallz.Config {
 	};
 }
 
-const t = wallz.testing;
+const t = pondz.testing;
 test {
 	t.setup();
 	std.testing.refAllDecls(@This());
