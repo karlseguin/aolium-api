@@ -8,8 +8,8 @@ pub fn run(conn: Conn) !void {
 		\\  id integer primary key,
 		\\  user_id integer not null,
 		\\  title text null,
-		\\  url text null,
-		\\  content text null,
+		\\  link text null,
+		\\  text text null,
 		\\  created int not null default(unixepoch()),
 		\\  updated int not null default(unixepoch())
 		\\ )

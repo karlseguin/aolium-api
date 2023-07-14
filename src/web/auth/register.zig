@@ -17,7 +17,7 @@ var register_validator: *validate.Object(void) = undefined;
 
 pub fn init(builder: *validate.Builder(void)) void {
 	register_validator = builder.object(&.{
-		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN})),
+		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN, .function = validateUsername})),
 		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6, .max = 70})),
 		builder.field("email", builder.string(.{.trim = true, .function = validateEmail})),
 	}, .{});
@@ -115,6 +115,23 @@ fn validateEmail(value: ?[]const u8, context: *validate.Context(void)) !?[]const
 	}
 
 	return email;
+}
+
+fn validateUsername(value: ?[]const u8, context: *validate.Context(void)) !?[]const u8 {
+	const username = value.?;
+	for (username) |c| {
+		if (std.ascii.isAlphanumeric(c)) {
+			continue;
+		}
+		if (c == '_' or c == '.' or c == '-') {
+			continue;
+		}
+		try context.add(validate.Invalid{
+			.code = pondz.val.INVALID_USERNAME,
+			.err = "Can only contain letter, numbers, unerscore, dot or hyphen",
+		});
+	}
+	return username;
 }
 
 const t = pondz.testing;
@@ -228,5 +245,28 @@ test "auth.validateEmail" {
 		validator.reset();
 		_ = try validateEmail(email, validator);
 		try validate.testing.expectInvalid(.{.code = pondz.val.INVALID_EMAIL}, validator);
+	}
+}
+
+test "auth.validateUsername" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	const validator = try tc.app.validators.acquire({});
+
+	try t.expectString("leto", (try validateUsername("leto", validator)).?);
+	try t.expectString("l.e_t-0", (try validateUsername("l.e_t-0", validator)).?);
+
+	const invalid_emails = [_][]const u8{
+		"l eto",
+		"l$eto",
+		"l!te",
+		"l@eto",
+	};
+
+	for (invalid_emails) |email| {
+		validator.reset();
+		_ = try validateUsername(email, validator);
+		try validate.testing.expectInvalid(.{.code = pondz.val.INVALID_USERNAME}, validator);
 	}
 }

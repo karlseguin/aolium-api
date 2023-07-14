@@ -60,7 +60,7 @@ pub const Dispatcher = struct {
 				try res.json(.{
 					.code = code,
 					.error_id = error_id,
-					.err = "intezrnal server error",
+					.err = "internal server error",
 				}, .{});
 
 				log_request = true;

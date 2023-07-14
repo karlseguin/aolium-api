@@ -79,7 +79,10 @@ pub fn createSession(env: *pondz.Env, conn: zqlite.Conn, user_data: anytype, res
 	try env.app.session_cache.put(&session_id, user, .{.ttl = 1800});
 
 	return res.json(.{
-		.user = user,
+		.user = .{
+			.id = user.id,
+			.username = user_data.username,
+		},
 		.session_id = session_id,
 		.reset_password = user_data.reset_password,
 	}, .{});
@@ -164,7 +167,7 @@ test "auth.login" {
 		tc.web.json(.{.username = "leto", .password = "ghanima"});
 		try handler(tc.env(), tc.web.req, tc.web.res);
 		try tc.web.expectStatus(200);
-		try tc.web.expectJson(.{.user = .{.id = user_id1}, .reset_password = false});
+		try tc.web.expectJson(.{.user = .{.id = user_id1, .username = "leto"}, .reset_password = false});
 
 		const body = (try tc.web.getJson()).object;
 		const session_id = body.get("session_id").?.string;
@@ -180,7 +183,7 @@ test "auth.login" {
 		tc.web.json(.{.username = "PAUL", .password = "chani"});
 		try handler(tc.env(), tc.web.req, tc.web.res);
 		try tc.web.expectStatus(200);
-		try tc.web.expectJson(.{.user = .{.id = user_id2}, .reset_password = true});
+		try tc.web.expectJson(.{.user = .{.id = user_id2, .username = "PAUL"}, .reset_password = true});
 
 		const body = (try tc.web.getJson()).object;
 		const session_id = body.get("session_id").?.string;
