@@ -1,0 +1,46 @@
+name: Release
+
+permissions:
+  contents: write
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: Set env
+        run: |
+          echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" > src/version.txt
+
+      - name: install zig
+        run: |
+          sudo snap install zig --classic --edge
+          echo "zig: $(zig version)" >> src/version.txt
+
+      - name: commit
+        run: |
+          echo "commit: $(git rev-parse HEAD | tr -d '\n')" >> src/version.txt
+
+      - name: build-x86_64-linux-gnu
+        run: |
+          zig build -Doptimize=ReleaseFast -Dcpu=skylake -Dtarget=x86_64-linux-gnu
+          mkdir -p release/pondz-x86_64-linux-gnu/
+          mv zig-out/bin/pondz release/pondz-x86_64-linux-gnu/
+
+      - name: create archive
+        run: |
+          cd release
+          tar -cJf pondz-x86_64-linux-gnu.tar.xz pondz-x86_64-linux-gnu
+
+      - name: release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            /home/runner/work/pondz/pondz/release/pondz-x86_64-linux-gnu.tar.xz
