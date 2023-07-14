@@ -7,6 +7,7 @@ pub fn run(conn: Conn) !void {
 		\\ create table users (
 		\\  id integer primary key,
 		\\  username varchar not null,
+		\\  email varchar null,
 		\\  password varchar not null,
 		\\  active bool not null,
 		\\  reset_password bool not null,

@@ -5,7 +5,7 @@ pub const Config = @import("config.zig").Config;
 
 pub const is_test = @import("builtin").is_test;
 pub var version: []const u8 = @embedFile("version.txt");
-pub const MAX_USERNAME_LEN = 30;
+pub const MAX_USERNAME_LEN = 20;
 
 pub const codes = struct {
 	pub const INTERNAL_SERVER_ERROR_UNCAUGHT = 0;
@@ -22,6 +22,7 @@ pub const codes = struct {
 pub const val = struct {
 	pub const USERNAME_IN_USE = 100;
 	pub const EMPTY_POST = 101;
+	pub const INVALID_EMAIL = 102;
 };
 
 pub const testing = @import("t.zig");

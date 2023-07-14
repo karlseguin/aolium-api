@@ -19,6 +19,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 	register_validator = builder.object(&.{
 		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN})),
 		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6, .max = 70})),
+		builder.field("email", builder.string(.{.trim = true, .function = validateEmail})),
 	}, .{});
 }
 
@@ -32,12 +33,21 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		.params = ARGON_CONFIG,
 	}, &pw_buf);
 
+	var hashed_email: ?[]const u8 = null;
+	if (input.get([]u8, "email")) |email| {
+		var email_buf: [128]u8 = undefined;
+		hashed_email = try argon2.strHash(email, .{
+			.allocator = req.arena,
+			.params = ARGON_CONFIG,
+		}, &email_buf);
+	}
+
 	// load the user row
 	const sql =
-		\\ insert into users (username, password, active, reset_password)
-		\\ values (?1, ?2, ?3, ?4)
+		\\ insert into users (username, password, email, active, reset_password)
+		\\ values (?1, ?2, ?3, ?4, ?5)
 	;
-	const args = .{username, hashed_password, true, false};
+	const args = .{username, hashed_password, hashed_email, true, false};
 
 	const app = env.app;
 	const conn = app.getAuthConn();
@@ -62,6 +72,51 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	}, res);
 }
 
+fn validateEmail(value: ?[]const u8, context: *validate.Context(void)) !?[]const u8 {
+	// we're ok with a null email, because we're cool
+	const email = value orelse return null;
+
+	// IMO, \S+@\S+\.\S+ is the best email regex, but I don't want to pull
+	// in a regex library just for this, and we can more or less do something similar.
+
+	var valid = true;
+	var at: ?usize = null;
+	var dot: ?usize = null;
+	for (email, 0..) |c, i| {
+		if (c == '.') {
+			dot = i;
+		} else if (c == '@') {
+			if (at != null) {
+				valid = false;
+				break;
+			}
+			at = i;
+		} else if (c == ' ' or c == '\t' or c == '\n' or c == '\r') {
+			valid = false;
+			break;
+		}
+	}
+
+	const at_index = at orelse blk: {
+		valid = false;
+		break :blk 0;
+	};
+
+	const dot_index = dot orelse blk: {
+		valid = false;
+		break :blk 0;
+	};
+
+	if (!valid or at_index == 0 or dot_index == email.len - 1) {
+		try context.add(validate.Invalid{
+			.code = pondz.val.INVALID_EMAIL,
+			.err = "is not valid",
+		});
+	}
+
+	return email;
+}
+
 const t = pondz.testing;
 test "auth.register: empty body" {
 	var tc = t.context(.{});
@@ -82,10 +137,11 @@ test "auth.register: invalid input" {
 		var tc = t.context(.{});
 		defer tc.deinit();
 
-		tc.web.json(.{.hack = true});
+		tc.web.json(.{.hack = true, .email = "nope"});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "username"});
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "password"});
+		try tc.expectInvalid(.{.code = pondz.val.INVALID_EMAIL, .field = "email"});
 	}
 
 	{
@@ -94,7 +150,7 @@ test "auth.register: invalid input" {
 
 		tc.web.json(.{.username = "a2", .password = "12345"});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
-		try tc.expectInvalid(.{.code = validate.codes.STRING_LEN, .field = "username", .data = .{.min = 4, .max = 30}});
+		try tc.expectInvalid(.{.code = validate.codes.STRING_LEN, .field = "username", .data = .{.min = 4, .max = 20}});
 	try tc.expectInvalid(.{.code = validate.codes.STRING_LEN, .field = "password", .data = .{.min = 6, .max = 70}});
 	}
 }
@@ -110,7 +166,7 @@ test "auth.register: duplicate username" {
 	try tc.expectInvalid(.{.code = pondz.val.USERNAME_IN_USE, .field = "username"});
 }
 
-test "auth.register" {
+test "auth.register: success no email" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 
@@ -123,9 +179,10 @@ test "auth.register" {
 	const session_id = body.get("session_id").?.string;
 
 	{
-		const row = tc.getAuthRow("select password, active, reset_password, created from users where id = ?1", .{user_id}).?;
+		const row = tc.getAuthRow("select password, active, reset_password, email, created from users where id = ?1", .{user_id}).?;
 		try t.expectEqual(1, row.get(i64, "active").?);
 		try t.expectEqual(0, row.get(i64, "reset_password").?);
+		try t.expectEqual(null, row.get([]u8, "email"));
 		try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
 		try argon2.strVerify(row.get([]u8, "password").?, "reg-passwrd", .{.allocator = tc.arena});
 	}
@@ -134,5 +191,42 @@ test "auth.register" {
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
 		try t.expectEqual(user_id, row.get(i64, "user_id").?);
 		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
+	}
+}
+
+test "auth.register: success with email" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	tc.web.json(.{.username = "reg-user2", .password = "reg-passwrd2", .email = "leto@pondz.dev"});
+	try handler(tc.env(), tc.web.req, tc.web.res);
+	try tc.web.expectStatus(200);
+
+	const row = tc.getAuthRow("select email from users where username = 'reg-user2'", .{}).?;
+	try argon2.strVerify(row.get([]u8, "email").?, "leto@pondz.dev", .{.allocator = tc.arena});
+}
+
+test "auth.validateEmail" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	const validator = try tc.app.validators.acquire({});
+
+	try t.expectEqual(null, try validateEmail(null, validator));
+	try t.expectString("leto@caladan.gov", (try validateEmail("leto@caladan.gov", validator)).?);
+	try t.expectString("a@b.gov.museum", (try validateEmail("a@b.gov.museum", validator)).?);
+
+	const invalid_emails = [_][]const u8{
+		"nope",
+		"has @aspace.com",
+		"has@two@ats.com",
+		"@test.com",
+		"leto@test.",
+	};
+
+	for (invalid_emails) |email| {
+		validator.reset();
+		_ = try validateEmail(email, validator);
+		try validate.testing.expectInvalid(.{.code = pondz.val.INVALID_EMAIL}, validator);
 	}
 }
