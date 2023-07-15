@@ -50,7 +50,7 @@ fn parseArgs(allocator: Allocator) !pondz.Config {
 	try cmd.addArg(yazap.Arg.booleanOption("log_http", null, "Log http requests"));
 	try cmd.addArg(yazap.Arg.singleValueOption("root", null, "Root database path, can be absolute or relative, must exist (default: ./db"));
 	try cmd.addArg(yazap.Arg.singleValueOption("cors", null, "Enables CORS header for the specified origin (default, none)"));
-	try cmd.addArg(yazap.Arg.singleValueOption("port", null, "Port to listen on (default: 6667)"));
+	try cmd.addArg(yazap.Arg.singleValueOption("port", null, "Port to listen on (default: 8517)"));
 	try cmd.addArg(yazap.Arg.singleValueOption("instance_id", null, "If running multiple instances, giving each one a unique instance_id will improve the uniqueness of request_id (default: 0)"));
 	try cmd.addArg(yazap.Arg.singleValueOption("address", null, "Address to bind to (default: 127.0.0.1)"));
 	try cmd.addArg(yazap.Arg.singleValueOptionWithValidValues("log_level", null, "Log level to use (default: INFO), see also log_http)", &[_][]const u8{"info", "warn", "error", "fatal", "none"}));

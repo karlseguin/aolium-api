@@ -1,4 +1,5 @@
 const std = @import("std");
+const logz = @import("logz");
 const cache = @import("cache");
 const zqlite = @import("zqlite");
 const pondz = @import("pondz.zig");
@@ -41,11 +42,15 @@ pub const App = struct {
 		});
 		errdefer session_cache.deinit();
 
-		var auth_pool = try zqlite.Pool.init(allocator, .{
+		const auth_db_path = try std.fs.path.joinZ(aa, &[_][]const u8{config.root, "auth.sqlite3"});
+		var auth_pool = zqlite.Pool.init(allocator, .{
 			.size = 20,
-			.path = try std.fs.path.joinZ(aa, &[_][]const u8{config.root, "auth.sqlite3"}),
+			.path = auth_db_path,
 			.flags = zqlite.OpenFlags.Create | zqlite.OpenFlags.EXResCode,
-		});
+		}) catch |err| {
+			logz.fatal().ctx("app.auth_pool").err(err).string("path", auth_db_path).log();
+			return err;
+		};
 		errdefer auth_pool.deinit();
 
 		{
@@ -60,11 +65,15 @@ pub const App = struct {
 
 		while (started < DATA_POOL_COUNT) : (started += 1) {
 			const db_file = try std.fmt.allocPrint(aa, "data_{d:0>2}.sqlite3", .{started});
-			var pool = try zqlite.Pool.init(allocator, .{
+			const data_db_path = try std.fs.path.joinZ(aa, &[_][]const u8{config.root, db_file});
+			var pool = zqlite.Pool.init(allocator, .{
 				.size = 20,
-				.path = try std.fs.path.joinZ(aa, &[_][]const u8{config.root, db_file}),
+				.path = data_db_path,
 				.flags = zqlite.OpenFlags.Create | zqlite.OpenFlags.EXResCode,
-			});
+			}) catch |err| {
+				logz.fatal().ctx("app.data_pool").err(err).string("path", data_db_path).log();
+				return err;
+			};
 			errdefer pool.deinit();
 
 			{
