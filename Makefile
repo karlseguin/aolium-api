@@ -4,4 +4,4 @@ t:
 
 .PHONY: s
 s:
-	zig build run -freference-trace -- --root /tmp/pondz/ --cors '*' --log_http
+	zig build run -freference-trace -- --root /tmp/pondz/ --log_http

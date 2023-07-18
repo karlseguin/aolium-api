@@ -1,8 +1,5 @@
 // Modified from:
 // https://github.com/dmgk/zig-uuid/blob/9895f72f67d463b6bd616cc63dcfe70d12dc53b9/uuid.zig
-
-// Fast allocation-free v4 UUIDs.
-// Inspired by the Go implementation at github.com/skeeto/uuid
 const std = @import("std");
 
 const fmt = std.fmt;

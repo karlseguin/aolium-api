@@ -104,16 +104,17 @@ fn loadUser(app: *App, optional_session_id: ?[]const u8) !?*cache.Entry(User) {
 }
 
 fn loadUserFromSessionId(app: *App, session_id: []const u8) !?User {
-	const conn = app.getAuthConn();
-	defer app.releaseAuthConn(conn);
-
 	const sql =
 		\\ select s.user_id, s.expires, u.username
 		\\ from sessions s join users u on s.user_id = u.id
 		\\ where u.active and s.id = $1
 	;
+	const args = .{session_id};
 
-	const row = conn.row(sql, .{session_id}) catch |err| {
+	const conn = app.getAuthConn();
+	defer app.releaseAuthConn(conn);
+
+	const row = conn.row(sql, args) catch |err| {
 		return pondz.sqliteErr("Dispatcher.loadUser", err, conn, logz.logger());
 	} orelse return null;
 	defer row.deinit();

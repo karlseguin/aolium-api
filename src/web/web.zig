@@ -85,7 +85,6 @@ pub fn notFound(res: *httpz.Response, desc: []const u8) !void {
 
 pub fn validateJson(req: *httpz.Request, v: *validate.Object(void), env: *Env) !typed.Map {
 	const body = (try req.body()) orelse return error.InvalidJson;
-
 	var validator = try env.validator();
 	const input = try v.validateJsonS(body, validator);
 	if (!validator.isValid()) {

@@ -15,6 +15,32 @@ const ARGON_CONFIG = if (pondz.is_test) argon2.Params.fromLimits(1, 1024) else a
 
 var register_validator: *validate.Object(void) = undefined;
 
+const reserved_usernames = [_][]const u8 {
+	"about",
+	"account",
+	"accounts",
+	"admin",
+	"auth",
+	"blog",
+	"contact",
+	"feedback",
+	"home",
+	"info",
+	"login",
+	"logout",
+	"news",
+	"pond",
+	"pondz",
+	"privacy",
+	"settings",
+	"site",
+	"status",
+	"support",
+	"terms",
+	"user",
+	"users",
+};
+
 pub fn init(builder: *validate.Builder(void)) void {
 	register_validator = builder.object(&.{
 		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN, .function = validateUsername})),
@@ -119,19 +145,60 @@ fn validateEmail(value: ?[]const u8, context: *validate.Context(void)) !?[]const
 
 fn validateUsername(value: ?[]const u8, context: *validate.Context(void)) !?[]const u8 {
 	const username = value.?;
-	for (username) |c| {
-		if (std.ascii.isAlphanumeric(c)) {
-			continue;
+	var valid = std.ascii.isAlphabetic(username[0]);
+
+	if (valid) {
+		for (username[1..]) |c| {
+			if (std.ascii.isAlphanumeric(c)) {
+				continue;
+			}
+			if (c == '_' or c == '.' or c == '-') {
+				continue;
+			}
+			valid = false;
+			break;
 		}
-		if (c == '_' or c == '.' or c == '-') {
-			continue;
-		}
+	}
+
+	if (valid == false) {
 		try context.add(validate.Invalid{
 			.code = pondz.val.INVALID_USERNAME,
-			.err = "Can only contain letter, numbers, unerscore, dot or hyphen",
+			.err = "must begin with a letter, and only contain letters, numbers, unerscore, dot or hyphen",
 		});
 	}
+
+	if (std.sort.binarySearch([]const u8, username, &reserved_usernames, {}, compareString) != null) {
+		try context.add(validate.Invalid{
+			.code = pondz.val.RESERVED_USERNAME,
+			.err = "is reserved",
+		});
+	}
+
 	return username;
+}
+
+fn compareString(_: void, key: []const u8, value: []const u8) std.math.Order {
+	var key_compare = key;
+	var value_compare = value;
+
+	var result = std.math.Order.eq;
+
+	if (value.len < key.len) {
+		result = std.math.Order.gt;
+		key_compare = key[0..value.len];
+	} else if (value.len > key.len) {
+		result = std.math.Order.lt;
+		value_compare = value[0..key.len];
+	}
+
+	for (key_compare, value_compare) |k, v| {
+		var order = std.math.order(std.ascii.toLower(k), v);
+		if (order != .eq) {
+			return order;
+		}
+	}
+
+	return result;
 }
 
 const t = pondz.testing;
@@ -257,16 +324,35 @@ test "auth.validateUsername" {
 	try t.expectString("leto", (try validateUsername("leto", validator)).?);
 	try t.expectString("l.e_t-0", (try validateUsername("l.e_t-0", validator)).?);
 
-	const invalid_emails = [_][]const u8{
-		"l eto",
-		"l$eto",
-		"l!te",
-		"l@eto",
-	};
+	{
+		const invalid_usernames = [_][]const u8{
+			"1eto",
+			"_eto",
+			"l eto",
+			"l$eto",
+			"l!te",
+			"l@eto",
+		};
 
-	for (invalid_emails) |email| {
-		validator.reset();
-		_ = try validateUsername(email, validator);
-		try validate.testing.expectInvalid(.{.code = pondz.val.INVALID_USERNAME}, validator);
+		for (invalid_usernames) |username| {
+			validator.reset();
+			_ = try validateUsername(username, validator);
+			try validate.testing.expectInvalid(.{.code = pondz.val.INVALID_USERNAME}, validator);
+		}
+	}
+
+	{
+		var buf: [20]u8 = undefined;
+		for (reserved_usernames) |reserved| {
+			validator.reset();
+			_ = try validateUsername(reserved, validator);
+			try validate.testing.expectInvalid(.{.code = pondz.val.RESERVED_USERNAME}, validator);
+
+			// also test the uppercase version
+			validator.reset();
+			const upper = std.ascii.upperString(&buf, reserved);
+			_ = try validateUsername(upper, validator);
+			try validate.testing.expectInvalid(.{.code = pondz.val.RESERVED_USERNAME}, validator);
+		}
 	}
 }
