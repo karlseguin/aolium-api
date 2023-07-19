@@ -5,7 +5,7 @@ const Conn = migrations.Conn;
 pub fn run(conn: Conn) !void {
 	try conn.execNoArgs("migration.create.posts",
 		\\ create table posts (
-		\\  id integer primary key,
+		\\  id blob primary key,
 		\\  user_id integer not null,
 		\\  title text null,
 		\\  link text null,

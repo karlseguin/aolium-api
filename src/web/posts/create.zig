@@ -1,4 +1,5 @@
 const std = @import("std");
+const uuid = @import("uuid");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const posts = @import("_posts.zig");
@@ -35,8 +36,9 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	// dispatcher will make sure this is non-null
 	const user = env.user.?;
 
-	const sql = "insert into posts (user_id, title, link, text) values (?1, ?2, ?3, ?4)";
-	const args = .{user.id, title, link, text};
+	const post_id = uuid.bin();
+	const sql = "insert into posts (id, user_id, title, link, text) values (?1, ?2, ?3, ?4, ?5)";
+	const args = .{&post_id, user.id, title, link, text};
 
 	const app = env.app;
 	const conn = app.getDataConn(user.shard_id);
@@ -46,8 +48,9 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		return pondz.sqliteErr("posts.insert", err, conn, env.logger);
 	};
 
+	var hex_uuid: [36]u8 = undefined;
 	return res.json(.{
-		.id = conn.lastInsertedRowId(),
+		.id = uuid.toString(post_id, &hex_uuid),
 	}, .{});
 }
 
@@ -148,9 +151,9 @@ test "posts.create" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
-	const id = body.get("id").?.integer;
+	const id = body.get("id").?.string;
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{id}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
 	try t.expectEqual(3913, row.get(i64, "user_id").?);
 	try t.expectString("a title", row.get([]u8, "title").?);
 	try t.expectString("https://pondz.dev", row.get([]u8, "link").?);

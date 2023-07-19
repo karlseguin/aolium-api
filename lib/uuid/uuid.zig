@@ -16,18 +16,16 @@ pub fn bin() [16]u8 {
 
 pub fn hex() [36]u8 {
 	var buf: [36]u8 = undefined;
-	toString(bin(), &buf);
+	_ = toString(bin(), &buf);
 	return buf;
 }
 
 pub fn allocHex(allocator: Allocator) ![]u8 {
 	var buf = try allocator.alloc(u8, 36);
-	toString(bin(), buf);
-	return buf;
+	return toString(bin(), buf);
 }
 
-pub fn toString(uuid: [16]u8, out: []u8) void {
-	std.debug.assert(out.len == 36);
+pub fn toString(uuid: [16]u8, out: []u8) []u8 {
 	const h = "0123456789abcdef";
 
 	out[8] = '-';
@@ -39,6 +37,7 @@ pub fn toString(uuid: [16]u8, out: []u8) void {
 		out[i + 0] = h[uuid[j] >> 4];
 		out[i + 1] = h[uuid[j] & 0x0f];
 	}
+	return out;
 }
 
 pub fn parse(buf: []const u8) ![16]u8 {
@@ -111,8 +110,7 @@ test "uuid: parse" {
 
 	for (uuids) |uuid| {
 		var out: [36]u8 = undefined;
-		toString(try parse(uuid), &out);
-		try t.expectEqualStrings(uuid, &out);
+		try t.expectEqualStrings(uuid, toString(try parse(uuid), &out));
 	}
 }
 
@@ -138,8 +136,7 @@ test "uuid: bin & hex" {
 	for (0..10) |_| {
 		const uuid = hex();
 		var reversed: [36]u8 = undefined;
-		toString(try parse(&uuid), &reversed);
-		try t.expectEqualStrings(&uuid, &reversed);
+		try t.expectEqualStrings(&uuid, toString(try parse(&uuid), &reversed));
 	}
 }
 
@@ -148,7 +145,6 @@ test "uuid: allocHex" {
 		const uuid = try allocHex(t.allocator);
 		defer t.allocator.free(uuid);
 		var reversed: [36]u8 = undefined;
-		toString(try parse(uuid), &reversed);
-		try t.expectEqualStrings(uuid, &reversed);
+		try t.expectEqualStrings(uuid, toString(try parse(uuid), &reversed));
 	}
 }
