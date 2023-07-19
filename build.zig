@@ -24,6 +24,7 @@ pub fn build(b: *std.Build) !void {
 
 	// local libraries
 	try modules.put("uuid", b.addModule("uuid", .{.source_file = .{.path = "lib/uuid/uuid.zig"}}));
+	try modules.put("markdown", b.addModule("markdown", .{.source_file = .{.path = "lib/markdown/markdown.zig"}}));
 
 	// setup executable
 	const exe = b.addExecutable(.{
@@ -65,6 +66,14 @@ fn addLibs(step: *std.Build.CompileStep, modules: ModuleMap) !void {
 		step.addModule(m.key_ptr.*, m.value_ptr.*);
 	}
 
+	step.linkLibC();
+
+	step.addRPath("lib/markdown");
+	step.addLibraryPath("lib/markdown");
+	step.addIncludePath("lib/markdown");
+	step.linkSystemLibrary("cmark-gfm");
+	step.linkSystemLibrary("cmark-gfm-extensions");
+
 	step.addCSourceFile("lib/sqlite3/sqlite3.c", &[_][]const u8{
 		"-DSQLITE_DQS=0",
 		"-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1",
@@ -84,6 +93,5 @@ fn addLibs(step: *std.Build.CompileStep, modules: ModuleMap) !void {
 		"-DSQLITE_OMIT_UTF16=1",
 		"-DHAVE_USLEEP=1",
 	});
-	step.addIncludePath("lib/sqlite3/");
-	step.linkLibC();
+	step.addIncludePath("lib/sqlite/");
 }
