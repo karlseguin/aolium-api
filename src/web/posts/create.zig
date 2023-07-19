@@ -13,7 +13,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 	create_validator = builder.object(&.{
 		builder.field("title", builder.string(.{.max = 150, .trim = true})),
 		builder.field("link", builder.string(.{.max = 200, .trim = true})),
-		builder.field("text", builder.string(.{.max = 20_000, .trim = true})),
+		builder.field("text", builder.string(.{.max = 5_000, .trim = true})),
 	}, .{});
 }
 
@@ -26,8 +26,8 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	if (text == null and link == null) {
 		env._validator.?.addInvalidField(.{
-			.field = "text",
-			.err = "must provide either a link or text (or both)",
+			.field = null,
+			.err = "link and/or text must be provided",
 			.code = pondz.val.EMPTY_POST,
 		});
 		return error.Validation;

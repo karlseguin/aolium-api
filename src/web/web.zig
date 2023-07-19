@@ -35,8 +35,22 @@ pub fn start(app: *App) !void {
 			.requires_user = false,
 			.log_http = config.log_http,
 		}});
+
 		routes.post("/auth/login", auth.login);
 		routes.post("/auth/register", auth.register);
+	}
+
+	{
+		// technically, logout should require a logged in user, but it's easier
+		// for clients if we special-case is so that they don't have to deal with
+		// a 401 on invalid or expired tokens.
+		var routes = router.group("/api/1/", .{.ctx = &Dispatcher{
+			.app = app,
+			.load_user = false,
+			.log_http = config.log_http,
+		}});
+
+		routes.get("/auth/logout", auth.logout);
 	}
 
 	{
@@ -47,7 +61,6 @@ pub fn start(app: *App) !void {
 			.log_http = config.log_http,
 		}});
 		routes.post("/posts", posts.create);
-		routes.post("/auth/logout", auth.logout);
 	}
 
 	var http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});

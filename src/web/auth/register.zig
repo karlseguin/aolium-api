@@ -45,7 +45,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 	register_validator = builder.object(&.{
 		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN, .function = validateUsername})),
 		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6, .max = 70})),
-		builder.field("email", builder.string(.{.trim = true, .function = validateEmail})),
+		builder.field("email", builder.string(.{.trim = true, .function = validateEmail, .max = 100})),
 	}, .{});
 }
 

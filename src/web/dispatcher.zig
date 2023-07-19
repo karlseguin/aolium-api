@@ -16,6 +16,11 @@ var request_id: u32 = 0;
 pub const Dispatcher = struct {
 	app: *App,
 
+	// whether to try loading the user or not, this implies requires_user = false
+	load_user: bool = true,
+
+	// whether a user is required. When false, if we have a token, the user is still
+	// loaded (unless load_user = false).
 	requires_user: bool = false,
 
 	// whether or not to log HTTP request info (method, path, time, ...)
@@ -82,13 +87,15 @@ pub const Dispatcher = struct {
 	}
 
 	fn doDispatch(self: *const Dispatcher, action: httpz.Action(*Env), req: *httpz.Request, res: *httpz.Response, env: *Env) !void {
-		const user_entry = try loadUser(env.app, web.getSessionId(req));
-		env._cached_user_entry = user_entry;
+		if (self.load_user) {
+			const user_entry = try loadUser(env.app, web.getSessionId(req));
+			env._cached_user_entry = user_entry;
 
-		if (user_entry) |ue| {
-			env.user = ue.value;
-		} else if (self.requires_user) {
-			return error.UserRequired;
+			if (user_entry) |ue| {
+				env.user = ue.value;
+			} else if (self.requires_user) {
+				return error.UserRequired;
+			}
 		}
 
 		try action(env, req, res);
