@@ -25,6 +25,7 @@ pub const val = struct {
 	pub const INVALID_EMAIL = 102;
 	pub const INVALID_USERNAME = 103;
 	pub const RESERVED_USERNAME = 104;
+	pub const UNKNOWN_USERNAME = 105;
 };
 
 pub const testing = @import("t.zig");

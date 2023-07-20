@@ -272,4 +272,49 @@ const Inserter = struct {
 		};
 		return id;
 	}
+
+	const PostParams = struct {
+		id: ?[]const u8 = null,
+		user_id: i64 = 0,
+		title: ?[]const u8 = null,
+		link: ?[]const u8 = null,
+		text: ?[]const u8 = null,
+		created: i64 = 0,
+		updated: i64 = 0,
+	};
+
+	pub fn post(self: Inserter, p: PostParams) []const u8 {
+		var app = self.ctx.app;
+
+		const user_id = p.user_id;
+		const shard_id = shardIdForUserId(app, user_id);
+
+		const arena = self.ctx.arena;
+		const id = p.id orelse (uuid.allocHex(arena) catch unreachable);
+
+		const sql =
+			\\ insert into posts (id, user_id, title, link, text, created, updated)
+			\\ values (?1, ?2, ?3, ?4, ?5, unixepoch() + ?6, unixepoch() + ?7)
+		;
+		const args = .{id, user_id, p.title, p.link, p.text, p.created, p.updated};
+
+		const conn = app.getDataConn(shard_id);
+		defer app.releaseDataConn(conn, shard_id);
+
+		conn.exec(sql, args) catch {
+			std.debug.print("inserter.posts: {s}", .{conn.lastError()});
+			unreachable;
+		};
+
+		const string_id = arena.alloc(u8, 36) catch unreachable;
+		return uuid.toString(id, string_id);
+	}
 };
+
+fn shardIdForUserId(app: *App, user_id: i64) usize {
+	const conn = app.getAuthConn();
+	defer app.releaseAuthConn(conn);
+	const row = conn.row("select username from users where id = ?1", .{user_id}) catch unreachable orelse return 0;
+	defer row.deinit();
+	return App.getShardId(row.text(0));
+}

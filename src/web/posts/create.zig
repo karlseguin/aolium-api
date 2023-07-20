@@ -50,7 +50,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	var hex_uuid: [36]u8 = undefined;
 	return res.json(.{
-		.id = uuid.toString(post_id, &hex_uuid),
+		.id = uuid.toString(&post_id, &hex_uuid),
 	}, .{});
 }
 

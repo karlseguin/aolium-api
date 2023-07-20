@@ -38,6 +38,7 @@ pub fn start(app: *App) !void {
 
 		routes.post("/auth/login", auth.login);
 		routes.post("/auth/register", auth.register);
+		routes.get("/posts", posts.index);
 	}
 
 	{
@@ -104,6 +105,28 @@ pub fn validateJson(req: *httpz.Request, v: *validate.Object(void), env: *Env) !
 		return error.Validation;
 	}
 	return input;
+}
+
+// This isn't great, but we turn out querystring args into a typed.Map where every
+// value is a typed.Value.string. Validators can be configured to parse strings.
+pub fn validateQuery(req: *httpz.Request, args: []const []const u8, v: *validate.Object(void), env: *Env) !typed.Map {
+	const query = try req.query();
+
+	var map = typed.Map.init(req.arena);
+	try map.m.ensureTotalCapacity(@intCast(args.len));
+
+	for (args) |key| {
+		if (query.get(key)) |value| {
+			map.m.putAssumeCapacity(key, .{.string = value});
+		}
+	}
+
+	var validator = try env.validator();
+	const input = try v.validate(map, validator);
+	if (!validator.isValid()) {
+		return error.Validation;
+	}
+	return input orelse typed.Map.readonlyEmpty();
 }
 
 pub fn getSessionId(req: *httpz.Request) ?[]const u8 {

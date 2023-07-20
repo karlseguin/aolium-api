@@ -10,6 +10,7 @@ const Config = pondz.Config;
 
 const Allocator = std.mem.Allocator;
 const ValidatorPool = @import("validate").Pool;
+const BufferPool = @import("string_builder").Pool;
 
 const DATA_POOL_COUNT = if (pondz.is_test) 2 else 64;
 const DATA_POOL_MASK = DATA_POOL_COUNT - 1;
@@ -24,17 +25,30 @@ pub const App = struct {
 	// shard of pools
 	data_pools: [DATA_POOL_COUNT]zqlite.Pool,
 
+	// a pool of string builders
+	buffers: BufferPool,
+
 	// pool of validator, accessed through the env
 	validators: ValidatorPool(void),
 
-	// A cache for session tokens
+	// lower(username) => User
+	user_cache: cache.Cache(User),
+
+	// session_id => User
 	session_cache: cache.Cache(User),
+
 
 	pub fn init(allocator: Allocator, config: Config) !App{
 		// we need to generate some temporary stuff while setting up
 		var arena = std.heap.ArenaAllocator.init(allocator);
 		defer arena.deinit();
 		const aa = arena.allocator();
+
+		var user_cache = try cache.Cache(User).init(allocator, .{
+			.max_size = 1000,
+			.gets_per_promote = 10,
+		});
+		errdefer user_cache.deinit();
 
 		var session_cache = try cache.Cache(User).init(allocator, .{
 			.max_size = 1000,
@@ -89,7 +103,9 @@ pub const App = struct {
 			.allocator = allocator,
 			.auth_pool = auth_pool,
 			.data_pools = data_pools,
+			.user_cache = user_cache,
 			.session_cache = session_cache,
+			.buffers = try BufferPool.init(allocator, 100, 500_000),
 			.validators = try ValidatorPool(void).init(allocator, config.validator),
 		};
 	}
@@ -100,6 +116,8 @@ pub const App = struct {
 		for (&self.data_pools) |*dp| {
 			dp.deinit();
 		}
+		self.buffers.deinit();
+		self.user_cache.deinit();
 		self.session_cache.deinit();
 	}
 
@@ -119,12 +137,40 @@ pub const App = struct {
 		return self.data_pools[shard_id].release(conn);
 	}
 
+	pub fn getUserFromUsername(self: *App, username: []const u8) !?*cache.Entry(User) {
+		var buf: [pondz.MAX_USERNAME_LEN]u8 = undefined;
+		const lower = std.ascii.lowerString(&buf, username);
+
+		if (try self.user_cache.fetch(*App, lower, loadUserFromUsername, self, .{.ttl = 1800})) |entry| {
+			return entry;
+		}
+		return null;
+	}
+
 	// todo: either look this up or make it a consistent hash
 	pub fn getShardId(username: []const u8) usize {
 		var buf: [pondz.MAX_USERNAME_LEN]u8 = undefined;
 		const lower = std.ascii.lowerString(&buf, username);
 		const hash_code = std.hash.Wyhash.hash(0, lower);
 		return hash_code & DATA_POOL_MASK;
+	}
+
+
+	// called on a cache miss from getUserFromUsername
+	fn loadUserFromUsername(self: *App, username: []const u8) !?User {
+		const sql = "select id, username from users where lower(username) = ?1 and active";
+		const args = .{username};
+
+		const conn = self.getAuthConn();
+		defer self.releaseAuthConn(conn);
+
+		const row = conn.row(sql, args) catch |err| {
+			return pondz.sqliteErr("App.loadUserFromUsername", err, conn, logz.logger());
+		} orelse return null;
+
+		defer row.deinit();
+
+		return User.init(row.int(0), row.text(1));
 	}
 };
 
@@ -133,5 +179,44 @@ test "app: getShardId" {
 	try t.expectEqual(App.getShardId("Leto"), App.getShardId("leto"));
 	try t.expectEqual(App.getShardId("LETO"), App.getShardId("leTo"));
 	try t.expectEqual(App.getShardId("Leto"), App.getShardId("LETO"));
-	try t.expectEqual(false, App.getShardId("Duncan") == App.getShardId("leto"));
+	try t.expectEqual(false, App.getShardId("duncan") == App.getShardId("leto"));
+}
+
+test "app: getUserFromUsername" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	const uid1 = tc.insert.user(.{.username = "Leto"});
+	const uid2 = tc.insert.user(.{.username = "duncan"});
+	_ = tc.insert.user(.{.username = "Piter", .active = false});
+
+	try t.expectEqual(null, try tc.app.getUserFromUsername("Hello"));
+	try t.expectEqual(null, try tc.app.getUserFromUsername("Piter"));
+	try t.expectEqual(null, try tc.app.getUserFromUsername("piter"));
+
+	{
+		const ue = (try tc.app.getUserFromUsername("leto")).?;
+		defer ue.release();
+		try t.expectEqual(uid1, ue.value.id);
+		try t.expectEqual(0, ue.value.shard_id);
+	}
+
+	{
+		// ensure we get this from the cache
+		const conn = tc.app.getAuthConn();
+		defer tc.app.releaseAuthConn(conn);
+		try conn.exec("delete from users where id = ?1", .{uid1});
+
+		const ue = (try tc.app.getUserFromUsername("LETO")).?;
+		defer ue.release();
+		try t.expectEqual(uid1, ue.value.id);
+		try t.expectEqual(0, ue.value.shard_id);
+	}
+
+	{
+		const ue = (try tc.app.getUserFromUsername("Duncan")).?;
+		defer ue.release();
+		try t.expectEqual(uid2, ue.value.id);
+		try t.expectEqual(1, ue.value.shard_id);
+	}
 }
