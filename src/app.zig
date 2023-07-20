@@ -2,6 +2,7 @@ const std = @import("std");
 const logz = @import("logz");
 const cache = @import("cache");
 const zqlite = @import("zqlite");
+const web = @import("web/web.zig");
 const pondz = @import("pondz.zig");
 const migrations = @import("migrations/migrations.zig");
 
@@ -31,18 +32,26 @@ pub const App = struct {
 	// pool of validator, accessed through the env
 	validators: ValidatorPool(void),
 
+	// An HTTP cache
+	http_cache: cache.Cache(web.CachedResponse),
+
 	// lower(username) => User
 	user_cache: cache.Cache(User),
 
 	// session_id => User
 	session_cache: cache.Cache(User),
 
-
 	pub fn init(allocator: Allocator, config: Config) !App{
 		// we need to generate some temporary stuff while setting up
 		var arena = std.heap.ArenaAllocator.init(allocator);
 		defer arena.deinit();
 		const aa = arena.allocator();
+
+		var http_cache = try cache.Cache(web.CachedResponse).init(allocator, .{
+			.max_size = 524_288_000, //500mb
+			.gets_per_promote = 50,
+		});
+		errdefer http_cache.deinit();
 
 		var user_cache = try cache.Cache(User).init(allocator, .{
 			.max_size = 1000,
@@ -103,6 +112,7 @@ pub const App = struct {
 			.allocator = allocator,
 			.auth_pool = auth_pool,
 			.data_pools = data_pools,
+			.http_cache = http_cache,
 			.user_cache = user_cache,
 			.session_cache = session_cache,
 			.buffers = try BufferPool.init(allocator, 100, 500_000),
@@ -117,6 +127,7 @@ pub const App = struct {
 			dp.deinit();
 		}
 		self.buffers.deinit();
+		self.http_cache.deinit();
 		self.user_cache.deinit();
 		self.session_cache.deinit();
 	}

@@ -169,6 +169,32 @@ pub const errors = struct {
 	pub const AccessDenied = Error.init(401, codes.ACCESS_DENIED, "access denied");
 };
 
+pub const CachedResponse = struct {
+	status: u16,
+	body: []const u8,
+	content_type: httpz.ContentType,
+
+	pub fn removedFromCache(self: CachedResponse, allocator: Allocator) void {
+		allocator.free(self.body);
+	}
+
+	pub fn write(self: CachedResponse, res: *httpz.Response) !void {
+		res.status = self.status;
+		res.content_type = self.content_type;
+		res.body = self.body;
+
+		// It's important that we explicitly write out the response, because our
+		// cached entry is only guaranteed to be valid until it's released, which
+		// happens before httpz gets back control.
+		return res.write();
+	}
+
+	// used by cache library
+	pub fn size(self: CachedResponse) u32 {
+		return @intCast(self.body.len);
+	}
+};
+
 const t = pondz.testing;
 test "web: Error.write" {
 	var tc = t.context(.{});
@@ -193,4 +219,21 @@ test "web: getSessionID" {
 	defer tc.deinit();
 
 	try t.expectEqual(null, getSessionId(tc.web.req));
+}
+
+
+test "web: CachedResponse.write" {
+	var wt = t.web.init(.{});
+	defer wt.deinit();
+
+	const cr = CachedResponse{
+		.status = 123,
+		.content_type = .ICO,
+		.body = "some content"
+	};
+
+	try cr.write(wt.res);
+	try wt.expectStatus(123);
+	try wt.expectBody("some content");
+	try wt.expectHeader("Content-Type", "image/vnd.microsoft.icon");
 }

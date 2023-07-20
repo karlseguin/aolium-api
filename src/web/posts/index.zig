@@ -22,11 +22,8 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	const input = try web.validateQuery(req, &[_][]const u8{"username", "html"}, index_validator, env);
 
 	const app = env.app;
-	const html = input.get(bool, "html") orelse false;
-
-	// returns an (optional) *cache.Entry which we must release to let the cache
-	// know that we're done with it
-	const user_entry = (try app.getUserFromUsername(input.get([]u8, "username").?)) orelse {
+	const username = input.get([]u8, "username").?;
+	const user = try getUser(app, username) orelse {
 		env._validator.?.addInvalidField(.{
 			.field = "username",
 			.err = "does not exist",
@@ -34,9 +31,46 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		});
 		return error.Validation;
 	};
-	defer user_entry.release();
 
+	const html = input.get(bool, "html") orelse false;
+
+	var fetcher = CacheFetcher{
+		.env = env,
+		.user = user,
+		.arena = res.arena,
+		.html = input.get(bool, "html") orelse false,
+	};
+
+	var cache_key_buf: [pondz.MAX_USERNAME_LEN+1]u8 = undefined;
+	@memcpy(cache_key_buf[0..username.len], username);
+	cache_key_buf[username.len] = if (html) '1' else '0';
+	const cache_key = cache_key_buf[0..username.len+1];
+
+	// TODO: extend TTL once we have cache purging
+	const cached_response = (try app.http_cache.fetch(*CacheFetcher, cache_key, getCached, &fetcher, .{.ttl = 60})).?;
+	defer cached_response.release();
+	res.header("Cache-Control", "private,max-age=30");
+	try cached_response.value.write(res);
+}
+
+fn getUser(app: *pondz.App, username: []const u8) !?pondz.User {
+	const user_entry = (try app.getUserFromUsername(username)) orelse return null;
 	const user = user_entry.value;
+	user_entry.release();
+	return user;
+}
+
+const CacheFetcher = struct {
+	html: bool,
+	env: *pondz.Env,
+	user: pondz.User,
+	arena: std.mem.Allocator,
+};
+
+fn getCached(fetcher: *const CacheFetcher, _: []const u8) !?web.CachedResponse {
+	const env = fetcher.env;
+	const html = fetcher.html;
+	const user = fetcher.user;
 
 	const sql =
 		\\ select id, title, link, text, created, updated
@@ -47,6 +81,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	;
 	const args = .{user.id};
 
+	const app = env.app;
 	const conn = app.getDataConn(user.shard_id);
 	defer app.releaseDataConn(conn, user.shard_id);
 
@@ -60,7 +95,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	// need to dupe the text values so that they outlive a single iteration of the
 	// loop. Instead, we serialize each post immediately and glue everything together.
 
-	var sb = try app.buffers.acquireWithAllocator(res.arena);
+	var sb = try app.buffers.acquireWithAllocator(fetcher.arena);
 	defer app.buffers.release(sb);
 
 	const prefix = "{\"posts\":[\n";
@@ -96,10 +131,11 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	}
 	try sb.write("\n]}");
 
-	res.content_type = .JSON;
-	res.body = sb.string();
-	// Force the write now, since sb won't be valid after we return.
-	try res.write();
+	return .{
+		.status = 200,
+		.content_type = .JSON,
+		.body = try sb.copy(app.http_cache.allocator),
+	};
 }
 
 // We optionally render markdown to HTML. If we _don't_, then things are
@@ -179,45 +215,51 @@ test "posts.index: json posts" {
 	const p2 = tc.insert.post(.{.user_id = uid, .created = 12, .title = "t1", .link = "l1", .text = "### c1\n\nhi\n\n"});
 	_ = tc.insert.post(.{.created = 10});
 
-	{
-		tc.web.query("username", "index_post_list");
+	// test the cache too
+	for (0..2) |_| {
+		{
+			// raw output
+			tc.reset();
+			tc.web.query("username", "index_post_list");
 
-		try handler(tc.env(), tc.web.req, tc.web.res);
-		try tc.web.expectJson(.{.posts = .{
-			.{
-				.id = p2,
-				.title = "t1",
-				.link = "l1",
-				.text = "### c1\n\nhi\n\n",
-			},
-			.{
-				.id = p1,
-				.title = null,
-				.link = null,
-				.text = null,
-			}
-		}});
-	}
+			try handler(tc.env(), tc.web.req, tc.web.res);
+			try tc.web.expectJson(.{.posts = .{
+				.{
+					.id = p2,
+					.title = "t1",
+					.link = "l1",
+					.text = "### c1\n\nhi\n\n",
+				},
+				.{
+					.id = p1,
+					.title = null,
+					.link = null,
+					.text = null,
+				}
+			}});
+		}
 
-	{
-		tc.reset();
-		tc.web.query("html", "true");
-		tc.web.query("username", "index_post_list");
+		{
+			// html output
+			tc.reset();
+			tc.web.query("html", "true");
+			tc.web.query("username", "index_post_list");
 
-		try handler(tc.env(), tc.web.req, tc.web.res);
-		try tc.web.expectJson(.{.posts = .{
-			.{
-				.id = p2,
-				.title = "t1",
-				.link = "l1",
-				.text = "<h3>c1</h3>\n<p>hi</p>\n",
-			},
-			.{
-				.id = p1,
-				.title = null,
-				.link = null,
-				.text = null,
-			}
-		}});
+			try handler(tc.env(), tc.web.req, tc.web.res);
+			try tc.web.expectJson(.{.posts = .{
+				.{
+					.id = p2,
+					.title = "t1",
+					.link = "l1",
+					.text = "<h3>c1</h3>\n<p>hi</p>\n",
+				},
+				.{
+					.id = p1,
+					.title = null,
+					.link = null,
+					.text = null,
+				}
+			}});
+		}
 	}
 }

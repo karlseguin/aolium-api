@@ -4,7 +4,7 @@ const uuid = @import("uuid");
 const typed = @import("typed");
 const validate = @import("validate");
 const pondz = @import("pondz.zig");
-const web = @import("httpz").testing;
+pub const web = @import("httpz").testing;
 
 const App = pondz.App;
 const Env = pondz.Env;
