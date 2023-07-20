@@ -34,7 +34,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	const html = input.get(bool, "html") orelse false;
 
-	var fetcher = CacheFetcher{
+	var fetcher = PostFetcher{
 		.env = env,
 		.user = user,
 		.arena = res.arena,
@@ -47,7 +47,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	const cache_key = cache_key_buf[0..username.len+1];
 
 	// TODO: extend TTL once we have cache purging
-	const cached_response = (try app.http_cache.fetch(*CacheFetcher, cache_key, getCached, &fetcher, .{.ttl = 60})).?;
+	const cached_response = (try app.http_cache.fetch(*PostFetcher, cache_key, getPosts, &fetcher, .{.ttl = 60})).?;
 	defer cached_response.release();
 	res.header("Cache-Control", "private,max-age=30");
 	try cached_response.value.write(res);
@@ -60,14 +60,14 @@ fn getUser(app: *pondz.App, username: []const u8) !?pondz.User {
 	return user;
 }
 
-const CacheFetcher = struct {
+const PostFetcher = struct {
 	html: bool,
 	env: *pondz.Env,
 	user: pondz.User,
 	arena: std.mem.Allocator,
 };
 
-fn getCached(fetcher: *const CacheFetcher, _: []const u8) !?web.CachedResponse {
+fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	const env = fetcher.env;
 	const html = fetcher.html;
 	const user = fetcher.user;
