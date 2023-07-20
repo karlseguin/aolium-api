@@ -5,16 +5,16 @@ pub fn init() void {
 	c.init();
 }
 
-pub fn toHTML(input: [:0]const u8) Result {
+pub fn toHTML(input: [*:0]const u8, len: usize) Result {
 	return .{
-		.html = c.markdown_to_html(input, input.len, 0),
+		.value = c.markdown_to_html(input, len, 0),
 	};
 }
 
 pub const Result = struct {
-	html: [*:0]u8,
+	value: [*:0]u8,
 
 	pub fn deinit(self: Result) void {
-		std.c.free(@ptrCast(self.html));
+		std.c.free(@ptrCast(self.value));
 	}
 };

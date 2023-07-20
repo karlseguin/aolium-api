@@ -1,6 +1,8 @@
 const std = @import("std");
 const uuid = @import("uuid");
 const httpz = @import("httpz");
+const zqlite = @import("zqlite");
+const markdown = @import("markdown");
 const validate = @import("validate");
 const posts = @import("_posts.zig");
 
@@ -12,13 +14,15 @@ var index_validator: *validate.Object(void) = undefined;
 pub fn init(builder: *validate.Builder(void)) void {
 	index_validator = builder.object(&.{
 		builder.field("username", builder.string(.{.required = true, .max = pondz.MAX_USERNAME_LEN, .trim = true})),
+		builder.field("html", builder.boolean(.{.parse = true})),
 	}, .{});
 }
 
 pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
-	const input = try web.validateQuery(req, &[_][]const u8{"username"}, index_validator, env);
+	const input = try web.validateQuery(req, &[_][]const u8{"username", "html"}, index_validator, env);
 
 	const app = env.app;
+	const html = input.get(bool, "html") orelse false;
 
 	// returns an (optional) *cache.Entry which we must release to let the cache
 	// know that we're done with it
@@ -55,22 +59,26 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	// and then using json.stringify(.{.posts = posts}). But if we did that, we'd
 	// need to dupe the text values so that they outlive a single iteration of the
 	// loop. Instead, we serialize each post immediately and glue everything together.
+
 	var sb = try app.buffers.acquireWithAllocator(res.arena);
 	defer app.buffers.release(sb);
+
 	const prefix = "{\"posts\":[\n";
 	try sb.write(prefix);
 	var writer = sb.writer();
 
-
 	// TODO: can/should heavily optimzie this, namely by storing pre-generated
 	// json and html blobs that we just glue together.
 	while (rows.next()) |row| {
+		const text_value = maybeRender(html, row, 3);
+		defer text_value.deinit();
+
 		var id_buf: [36]u8 = undefined;
 		try std.json.stringify(.{
 			.id = uuid.toString(row.blob(0), &id_buf),
 			.title = row.nullableText(1),
 			.link = row.nullableText(2),
-			.text = row.nullableText(3),
+			.text = text_value.value(),
 			.created = row.int(4),
 			.updated = row.int(5),
 		}, .{}, writer);
@@ -93,6 +101,47 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	// Force the write now, since sb won't be valid after we return.
 	try res.write();
 }
+
+// We optionally render markdown to HTML. If we _don't_, then things are
+// straightforward and we return the text column from sqlite as-is.
+// However, if we _are_ rendering, we (a) need a null-terminated string
+// from sqlite (because that's what cmark wants) and we need to free the
+// result.
+fn maybeRender(html: bool, row: zqlite.Row, index: usize) RenderResult {
+	if (!html) {
+		return .{.raw = row.nullableText(index)};
+	}
+
+	const value = row.nullableTextZ(index) orelse {
+		return .{.raw = null};
+	};
+
+	// we're here because we've been asked to render the value to HTML and
+	// we actually have a value
+	return .{.html = markdown.toHTML(value, row.textLen(index))};
+}
+
+// Wraps a nullable text column which may be raw or may be rendered html from
+// markdown. This wrapper allows our caller to call .value() and .deinit()
+// without having to know anything.
+const RenderResult = union(enum) {
+	raw: ?[]const u8,
+	html: markdown.Result,
+
+	fn value(self: RenderResult) ?[]const u8 {
+		return switch (self) {
+			.raw => |v| v,
+			.html => |html| std.mem.span(html.value),
+		};
+	}
+
+	fn deinit(self: RenderResult) void {
+		switch (self) {
+			.raw => {},
+			.html => |html| html.deinit(),
+		}
+	}
+};
 
 const t = pondz.testing;
 test "posts.index: missing username" {
@@ -127,24 +176,48 @@ test "posts.index: json posts" {
 
 	const uid = tc.insert.user(.{.username = "index_post_list"});
 	const p1 = tc.insert.post(.{.user_id = uid, .created = 10});
-	const p2 = tc.insert.post(.{.user_id = uid, .created = 12, .title = "t1", .link = "l1", .text = "c1"});
+	const p2 = tc.insert.post(.{.user_id = uid, .created = 12, .title = "t1", .link = "l1", .text = "### c1\n\nhi\n\n"});
 	_ = tc.insert.post(.{.created = 10});
 
-	tc.web.query("username", "index_post_list");
+	{
+		tc.web.query("username", "index_post_list");
 
-	try handler(tc.env(), tc.web.req, tc.web.res);
-	try tc.web.expectJson(.{.posts = .{
-		.{
-			.id = p2,
-			.title = "t1",
-			.link = "l1",
-			.text = "c1",
-		},
-		.{
-			.id = p1,
-			.title = null,
-			.link = null,
-			.text = null,
-		}
-	}});
+		try handler(tc.env(), tc.web.req, tc.web.res);
+		try tc.web.expectJson(.{.posts = .{
+			.{
+				.id = p2,
+				.title = "t1",
+				.link = "l1",
+				.text = "### c1\n\nhi\n\n",
+			},
+			.{
+				.id = p1,
+				.title = null,
+				.link = null,
+				.text = null,
+			}
+		}});
+	}
+
+	{
+		tc.reset();
+		tc.web.query("html", "true");
+		tc.web.query("username", "index_post_list");
+
+		try handler(tc.env(), tc.web.req, tc.web.res);
+		try tc.web.expectJson(.{.posts = .{
+			.{
+				.id = p2,
+				.title = "t1",
+				.link = "l1",
+				.text = "<h3>c1</h3>\n<p>hi</p>\n",
+			},
+			.{
+				.id = p1,
+				.title = null,
+				.link = null,
+				.text = null,
+			}
+		}});
+	}
 }
