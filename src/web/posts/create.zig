@@ -13,8 +13,8 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	const user = env.user.?;
 	const post_id = uuid.bin();
-	const sql = "insert into posts (id, user_id, title, text, type) values (?1, ?2, ?3, ?4, ?5)";
-	const args = .{&post_id, user.id, post.title, post.text, post.type};
+	const sql = "insert into posts (id, user_id, title, text, type, tags) values (?1, ?2, ?3, ?4, ?5, ?6)";
+	const args = .{&post_id, user.id, post.title, post.text, post.type, post.tags};
 
 	const app = env.app;
 
@@ -56,27 +56,30 @@ test "posts.create: invalid input" {
 		var tc = t.context(.{});
 		defer tc.deinit();
 
-		tc.web.json(.{.x = 1});
+		tc.web.json(.{.x = 1, .tags = 32});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "type"});
+		try tc.expectInvalid(.{.code = validate.codes.TYPE_ARRAY, .field = "tags"});
 	}
 
 	{
 		var tc = t.context(.{});
 		defer tc.deinit();
 
-		tc.web.json(.{.type = "melange"});
+		tc.web.json(.{.type = "melange", .tags = .{"hi", 3}});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.STRING_CHOICE, .field = "type"});
+		try tc.expectInvalid(.{.code = validate.codes.TYPE_STRING, .field = "tags.1"});
 	}
 
 	{
 		var tc = t.context(.{});
 		defer tc.deinit();
 
-		tc.web.json(.{.type = "simple"});
+		tc.web.json(.{.type = "simple", .tags = .{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a"}});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "text"});
+		try tc.expectInvalid(.{.code = validate.codes.ARRAY_LEN_MAX, .field = "tags", .data = .{.max = 10}});
 	}
 
 	{
@@ -116,8 +119,9 @@ test "posts.create: simple" {
 	try t.expectString("simple", row.get([]u8, "type").?);
 	try t.expectString("hello world!", row.get([]u8, "text").?);
 	try t.expectEqual(null, row.get([]u8, "title"));
+	try t.expectEqual(null, row.get([]u8, "tags"));
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
+try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
 }
 
 test "posts.create: link" {
@@ -125,7 +129,7 @@ test "posts.create: link" {
 	defer tc.deinit();
 
 	tc.user(.{.id = 3914});
-	tc.web.json(.{.type = "link", .title = "FFmpeg - The Ultimate Guide", .text = "img.ly/blog/ultimate-guide-to-ffmpeg/"});
+	tc.web.json(.{.type = "link", .title = "FFmpeg - The Ultimate Guide", .text = "img.ly/blog/ultimate-guide-to-ffmpeg/", .tags = .{"tag1", "Tag2"}});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
@@ -136,6 +140,7 @@ test "posts.create: link" {
 	try t.expectString("link", row.get([]u8, "type").?);
 	try t.expectString("https://img.ly/blog/ultimate-guide-to-ffmpeg/", row.get([]u8, "text").?);
 	try t.expectString("FFmpeg - The Ultimate Guide", row.get([]u8, "title").?);
+	try t.expectString("[\"tag1\",\"Tag2\"]", row.get([]u8, "tags").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
 }

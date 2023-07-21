@@ -23,11 +23,11 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	const sql =
 		\\ update posts
-		\\ set title = ?3, text = ?4, type = ?5, updated = unixepoch()
+		\\ set title = ?3, text = ?4, type = ?5, tags = ?6, updated = unixepoch()
 		\\ where id = ?1 and user_id = ?2
 	;
 
-	const args = .{&post_id, user.id, post.title, post.text, post.type};
+	const args = .{&post_id, user.id, post.title, post.text, post.type, post.tags};
 
 	const app = env.app;
 
@@ -69,27 +69,30 @@ test "posts.update: invalid input" {
 		var tc = t.context(.{});
 		defer tc.deinit();
 
-		tc.web.json(.{.x = 1});
+		tc.web.json(.{.x = 1, .tags = 32});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "type"});
+		try tc.expectInvalid(.{.code = validate.codes.TYPE_ARRAY, .field = "tags"});
 	}
 
 	{
 		var tc = t.context(.{});
 		defer tc.deinit();
 
-		tc.web.json(.{.type = "melange"});
+		tc.web.json(.{.type = "melange", .tags = .{"hi", 3}});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.STRING_CHOICE, .field = "type"});
+		try tc.expectInvalid(.{.code = validate.codes.TYPE_STRING, .field = "tags.1"});
 	}
 
 	{
 		var tc = t.context(.{});
 		defer tc.deinit();
 
-		tc.web.json(.{.type = "simple"});
+		tc.web.json(.{.type = "simple", .tags = .{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a"}});
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "text"});
+		try tc.expectInvalid(.{.code = validate.codes.ARRAY_LEN_MAX, .field = "tags", .data = .{.max = 10}});
 	}
 
 	{
@@ -194,7 +197,7 @@ test "posts.update: long" {
 	const id = tc.insert.post(.{.user_id = 441, .updated = -500, .created = -200});
 
 	tc.web.param("id", id);
-	tc.web.json(.{.type = "long", .title = "A Title!", .text = "Some !content\nOk"});
+	tc.web.json(.{.type = "long", .title = "A Title!", .text = "Some !content\nOk", .tags = .{"t1", "soup"}});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
@@ -202,6 +205,7 @@ test "posts.update: long" {
 	try t.expectString("long", row.get([]u8, "type").?);
 	try t.expectString("Some !content\nOk", row.get([]u8, "text").?);
 	try t.expectString("A Title!", row.get([]u8, "title").?);
+	try t.expectString("[\"t1\",\"soup\"]", row.get([]u8, "tags").?);
 	try t.expectDelta(std.time.timestamp() - 200, row.get(i64, "created").?, 2);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
 }
