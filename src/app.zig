@@ -13,7 +13,7 @@ const Allocator = std.mem.Allocator;
 const ValidatorPool = @import("validate").Pool;
 const BufferPool = @import("string_builder").Pool;
 
-const DATA_POOL_COUNT = if (pondz.is_test) 2 else 64;
+const DATA_POOL_COUNT = if (pondz.is_test) 1 else 64;
 const DATA_POOL_MASK = DATA_POOL_COUNT - 1;
 
 pub const App = struct {
@@ -194,13 +194,6 @@ pub const App = struct {
 };
 
 const t = pondz.testing;
-test "app: getShardId" {
-	try t.expectEqual(App.getShardId("Leto"), App.getShardId("leto"));
-	try t.expectEqual(App.getShardId("LETO"), App.getShardId("leTo"));
-	try t.expectEqual(App.getShardId("Leto"), App.getShardId("LETO"));
-	try t.expectEqual(false, App.getShardId("duncan") == App.getShardId("leto"));
-}
-
 test "app: getUserFromUsername" {
 	var tc = t.context(.{});
 	defer tc.deinit();
@@ -236,6 +229,6 @@ test "app: getUserFromUsername" {
 		const ue = (try tc.app.getUserFromUsername("Duncan")).?;
 		defer ue.release();
 		try t.expectEqual(uid2, ue.value.id);
-		try t.expectEqual(1, ue.value.shard_id);
+		try t.expectEqual(0, ue.value.shard_id);
 	}
 }

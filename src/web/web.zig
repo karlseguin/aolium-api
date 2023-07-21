@@ -62,6 +62,7 @@ pub fn start(app: *App) !void {
 			.log_http = config.log_http,
 		}});
 		routes.post("/posts", posts.create);
+		routes.post("/posts/:id", posts.update);
 	}
 
 	var http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});

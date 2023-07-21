@@ -274,7 +274,6 @@ const Inserter = struct {
 	}
 
 	const PostParams = struct {
-		id: ?[]const u8 = null,
 		user_id: i64 = 0,
 		title: ?[]const u8 = null,
 		text: ?[]const u8 = null,
@@ -287,10 +286,9 @@ const Inserter = struct {
 		var app = self.ctx.app;
 
 		const user_id = p.user_id;
-		const shard_id = shardIdForUserId(app, user_id);
 
 		const arena = self.ctx.arena;
-		const id = p.id orelse (uuid.allocHex(arena) catch unreachable);
+		const id = &uuid.bin();
 
 		const sql =
 			\\ insert into posts (id, user_id, title, text, type, created, updated)
@@ -298,8 +296,8 @@ const Inserter = struct {
 		;
 		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", p.created, p.updated};
 
-		const conn = app.getDataConn(shard_id);
-		defer app.releaseDataConn(conn, shard_id);
+		const conn = app.getDataConn(0);
+		defer app.releaseDataConn(conn, 0);
 
 		conn.exec(sql, args) catch {
 			std.debug.print("inserter.posts: {s}", .{conn.lastError()});
