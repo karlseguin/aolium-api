@@ -52,12 +52,18 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	const args = .{&post_id, user.id, title, text, tpe};
 
 	const app = env.app;
-	const conn = app.getDataConn(user.shard_id);
-	defer app.releaseDataConn(conn, user.shard_id);
 
-	conn.exec(sql, args) catch |err| {
-		return pondz.sqliteErr("posts.insert", err, conn, env.logger);
-	};
+	{
+		// we want conn released ASAP
+		const conn = app.getDataConn(user.shard_id);
+		defer app.releaseDataConn(conn, user.shard_id);
+
+		conn.exec(sql, args) catch |err| {
+			return pondz.sqliteErr("posts.insert", err, conn, env.logger);
+		};
+	}
+
+	app.clearUserCache(user.id);
 
 	var hex_uuid: [36]u8 = undefined;
 	return res.json(.{

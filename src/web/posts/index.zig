@@ -36,13 +36,13 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		.html = input.get(bool, "html") orelse false,
 	};
 
-	var cache_key_buf: [pondz.MAX_USERNAME_LEN+1]u8 = undefined;
-	@memcpy(cache_key_buf[0..username.len], username);
-	cache_key_buf[username.len] = if (html) '1' else '0';
-	const cache_key = cache_key_buf[0..username.len+1];
+	// 8 byte id + html bool
+	var cache_key_buf: [9]u8 = undefined;
+	@memcpy(cache_key_buf[0..8], std.mem.asBytes(&user.id));
+	cache_key_buf[8] = if (html) 1 else 0;
+	const cache_key = cache_key_buf[0..];
 
-	// TODO: extend TTL once we have cache purging
-	const cached_response = (try app.http_cache.fetch(*PostFetcher, cache_key, getPosts, &fetcher, .{.ttl = 60})).?;
+	const cached_response = (try app.http_cache.fetch(*PostFetcher, cache_key, getPosts, &fetcher, .{.ttl = 300})).?;
 	defer cached_response.release();
 	res.header("Cache-Control", "private,max-age=30");
 	try cached_response.value.write(res);
@@ -77,19 +77,6 @@ fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	const args = .{user.id};
 
 	const app = env.app;
-	const conn = app.getDataConn(user.shard_id);
-	defer app.releaseDataConn(conn, user.shard_id);
-
-	var rows = conn.rows(sql, args) catch |err| {
-		return pondz.sqliteErr("posts.select", err, conn, env.logger);
-	};
-	defer rows.deinit();
-
-	// It would be simpler to loop through rows, collecting "Posts" into an arraylist
-	// and then using json.stringify(.{.posts = posts}). But if we did that, we'd
-	// need to dupe the text values so that they outlive a single iteration of the
-	// loop. Instead, we serialize each post immediately and glue everything together.
-
 	var sb = try app.buffers.acquireWithAllocator(fetcher.arena);
 	defer app.buffers.release(sb);
 
@@ -97,27 +84,46 @@ fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	try sb.write(prefix);
 	var writer = sb.writer();
 
-	// TODO: can/should heavily optimzie this, namely by storing pre-generated
-	// json and html blobs that we just glue together.
-	while (rows.next()) |row| {
-		const text_value = maybeRender(html, row, 3);
-		defer text_value.deinit();
+	{
+		// this block exists so that conn is released ASAP, specifically avoiding
+		// the sb.copy
 
-		var id_buf: [36]u8 = undefined;
-		try std.json.stringify(.{
-			.id = uuid.toString(row.blob(0), &id_buf),
-			.type = row.nullableText(1),
-			.title = row.nullableText(2),
-			.text = text_value.value(),
-			.created = row.int(4),
-			.updated = row.int(5),
-		}, .{.emit_null_optional_fields = false}, writer);
+		const conn = app.getDataConn(user.shard_id);
+		defer app.releaseDataConn(conn, user.shard_id);
 
-		try sb.write(",\n");
-	}
+		var rows = conn.rows(sql, args) catch |err| {
+			return pondz.sqliteErr("posts.select", err, conn, env.logger);
+		};
+		defer rows.deinit();
 
-	if (rows.err) |err| {
-		return pondz.sqliteErr("posts.select.rows", err, conn, env.logger);
+		// It would be simpler to loop through rows, collecting "Posts" into an arraylist
+		// and then using json.stringify(.{.posts = posts}). But if we did that, we'd
+		// need to dupe the text values so that they outlive a single iteration of the
+		// loop. Instead, we serialize each post immediately and glue everything together.
+
+
+		// TODO: can/should heavily optimzie this, namely by storing pre-generated
+		// json and html blobs that we just glue together.
+		while (rows.next()) |row| {
+			const text_value = maybeRender(html, row, 3);
+			defer text_value.deinit();
+
+			var id_buf: [36]u8 = undefined;
+			try std.json.stringify(.{
+				.id = uuid.toString(row.blob(0), &id_buf),
+				.type = row.nullableText(1),
+				.title = row.nullableText(2),
+				.text = text_value.value(),
+				.created = row.int(4),
+				.updated = row.int(5),
+			}, .{.emit_null_optional_fields = false}, writer);
+
+			try sb.write(",\n");
+		}
+
+		if (rows.err) |err| {
+			return pondz.sqliteErr("posts.select.rows", err, conn, env.logger);
+		}
 	}
 
 	// strip out the last comma and newline, if we wrote anything

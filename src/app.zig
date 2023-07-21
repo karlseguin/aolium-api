@@ -166,6 +166,14 @@ pub const App = struct {
 		return hash_code & DATA_POOL_MASK;
 	}
 
+	pub fn clearUserCache(self: *App, user_id: i64) void {
+		// TODO: delPrefix tries to minize write locks, but it's still an O(N) on the
+		// cache, this has to switch to be switched to layered cache at some point.
+		_ = self.http_cache.delPrefix(std.mem.asBytes(&user_id)) catch |err| {
+			logz.err().ctx("app.clearUserCache").err(err).int("user_id", user_id).log();
+		};
+	}
+
 
 	// called on a cache miss from getUserFromUsername
 	fn loadUserFromUsername(self: *App, username: []const u8) !?User {
