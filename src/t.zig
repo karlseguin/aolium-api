@@ -277,8 +277,8 @@ const Inserter = struct {
 		id: ?[]const u8 = null,
 		user_id: i64 = 0,
 		title: ?[]const u8 = null,
-		link: ?[]const u8 = null,
 		text: ?[]const u8 = null,
+		type: ?[]const u8 = null,
 		created: i64 = 0,
 		updated: i64 = 0,
 	};
@@ -293,10 +293,10 @@ const Inserter = struct {
 		const id = p.id orelse (uuid.allocHex(arena) catch unreachable);
 
 		const sql =
-			\\ insert into posts (id, user_id, title, link, text, created, updated)
+			\\ insert into posts (id, user_id, title, text, type, created, updated)
 			\\ values (?1, ?2, ?3, ?4, ?5, unixepoch() + ?6, unixepoch() + ?7)
 		;
-		const args = .{id, user_id, p.title, p.link, p.text, p.created, p.updated};
+		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", p.created, p.updated};
 
 		const conn = app.getDataConn(shard_id);
 		defer app.releaseDataConn(conn, shard_id);

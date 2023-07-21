@@ -24,12 +24,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	const app = env.app;
 	const username = input.get([]u8, "username").?;
 	const user = try getUser(app, username) orelse {
-		env._validator.?.addInvalidField(.{
-			.field = "username",
-			.err = "does not exist",
-			.code = pondz.val.UNKNOWN_USERNAME,
-		});
-		return error.Validation;
+		return web.notFound(res, "username doesn't exist");
 	};
 
 	const html = input.get(bool, "html") orelse false;
@@ -73,7 +68,7 @@ fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	const user = fetcher.user;
 
 	const sql =
-		\\ select id, title, link, text, created, updated
+		\\ select id, type, title, text, created, updated
 		\\ from posts
 		\\ where user_id = ?1
 		\\ order by created desc
@@ -111,12 +106,12 @@ fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 		var id_buf: [36]u8 = undefined;
 		try std.json.stringify(.{
 			.id = uuid.toString(row.blob(0), &id_buf),
-			.title = row.nullableText(1),
-			.link = row.nullableText(2),
+			.type = row.nullableText(1),
+			.title = row.nullableText(2),
 			.text = text_value.value(),
 			.created = row.int(4),
 			.updated = row.int(5),
-		}, .{}, writer);
+		}, .{.emit_null_optional_fields = false}, writer);
 
 		try sb.write(",\n");
 	}
@@ -191,8 +186,9 @@ test "posts.index: unknown username" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 	tc.web.query("username", "unknown");
-	try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
-	try tc.expectInvalid(.{.code = pondz.val.UNKNOWN_USERNAME, .field = "username"});
+	try handler(tc.env(), tc.web.req, tc.web.res);
+	try tc.web.expectStatus(404);
+	try tc.web.expectJson(.{.desc = "username doesn't exist", .code = 3});
 }
 
 test "posts.index: no posts" {
@@ -211,8 +207,8 @@ test "posts.index: json posts" {
 	defer tc.deinit();
 
 	const uid = tc.insert.user(.{.username = "index_post_list"});
-	const p1 = tc.insert.post(.{.user_id = uid, .created = 10});
-	const p2 = tc.insert.post(.{.user_id = uid, .created = 12, .title = "t1", .link = "l1", .text = "### c1\n\nhi\n\n"});
+	const p1 = tc.insert.post(.{.user_id = uid, .created = 10, .type = "simple", .text = "the spice must flow"});
+	const p2 = tc.insert.post(.{.user_id = uid, .created = 12, .type = "long", .title = "t1",  .text = "### c1\n\nhi\n\n"});
 	_ = tc.insert.post(.{.created = 10});
 
 	// test the cache too
@@ -226,15 +222,14 @@ test "posts.index: json posts" {
 			try tc.web.expectJson(.{.posts = .{
 				.{
 					.id = p2,
+					.type = "long",
 					.title = "t1",
-					.link = "l1",
 					.text = "### c1\n\nhi\n\n",
 				},
 				.{
 					.id = p1,
-					.title = null,
-					.link = null,
-					.text = null,
+					.type = "simple",
+					.text = "the spice must flow",
 				}
 			}});
 		}
@@ -249,15 +244,14 @@ test "posts.index: json posts" {
 			try tc.web.expectJson(.{.posts = .{
 				.{
 					.id = p2,
+					.type = "long",
 					.title = "t1",
-					.link = "l1",
 					.text = "<h3>c1</h3>\n<p>hi</p>\n",
 				},
 				.{
 					.id = p1,
-					.title = null,
-					.link = null,
-					.text = null,
+					.type = "simple",
+					.text = "<p>the spice must flow</p>\n",
 				}
 			}});
 		}

@@ -13,7 +13,7 @@ void init() {
 	strikethrough = cmark_find_syntax_extension("strikethrough");
 }
 
-char *markdown_to_html(const char *text, size_t len, int options) {
+char *markdown_to_html(const char *text, size_t len) {
 	cmark_parser *parser = cmark_parser_new(0);
 	cmark_parser_attach_syntax_extension(parser, table);
 	cmark_parser_attach_syntax_extension(parser, autolink);
@@ -22,7 +22,7 @@ char *markdown_to_html(const char *text, size_t len, int options) {
 	cmark_parser_feed(parser, text, len);
 	cmark_node *node = cmark_parser_finish(parser);
 
-	char *html = cmark_render_html(node, options, cmark_parser_get_syntax_extensions(parser));
+	char *html = cmark_render_html(node, CMARK_OPT_STRIKETHROUGH_DOUBLE_TILDE | CMARK_OPT_GITHUB_PRE_LANG, cmark_parser_get_syntax_extensions(parser));
 	cmark_parser_free(parser);
 	return html;
 }
