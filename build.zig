@@ -94,5 +94,5 @@ fn addLibs(step: *std.Build.CompileStep, modules: ModuleMap) !void {
 		"-DSQLITE_OMIT_UTF16=1",
 		"-DHAVE_USLEEP=1",
 	});
-	step.addIncludePath("lib/sqlite/");
+	step.addIncludePath("lib/sqlite3/");
 }
