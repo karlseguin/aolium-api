@@ -26,6 +26,7 @@ const reserved_usernames = [_][]const u8 {
 	"feedback",
 	"home",
 	"info",
+	"karl" // on no he didn't
 	"login",
 	"logout",
 	"news",

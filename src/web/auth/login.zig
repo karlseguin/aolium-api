@@ -15,8 +15,8 @@ var login_validator: *validate.Object(void) = undefined;
 
 pub fn init(builder: *validate.Builder(void)) void {
 	login_validator = builder.object(&.{
-		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 1})),
-		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 1})),
+		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4})),
+		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6})),
 	}, .{});
 }
 
