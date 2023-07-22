@@ -81,7 +81,12 @@ fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	const offset = (fetcher.page - 1) * 20;
 
 	const sql =
-		\\ select id, type, title, text, created, updated
+		\\ select id, type, title,
+		\\   case type
+		\\     when 'long' then null
+		\\     else text
+		\\   end as text,
+		\\   created, updated
 		\\ from posts
 		\\ where user_id = ?1
 		\\ order by created desc
@@ -117,13 +122,15 @@ fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 		// TODO: can/should heavily optimzie this, namely by storing pre-generated
 		// json and html blobs that we just glue together.
 		while (rows.next()) |row| {
-			const text_value = maybeRender(html, row, 3);
+			const tpe = row.text(1);
+
+			const text_value = maybeRender(html, tpe, row, 3);
 			defer text_value.deinit();
 
 			var id_buf: [36]u8 = undefined;
 			try std.json.stringify(.{
 				.id = uuid.toString(row.blob(0), &id_buf),
-				.type = row.nullableText(1),
+				.type = tpe,
 				.title = row.nullableText(2),
 				.text = text_value.value(),
 				.created = row.int(4),
@@ -156,8 +163,8 @@ fn getPosts(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 // However, if we _are_ rendering, we (a) need a null-terminated string
 // from sqlite (because that's what cmark wants) and we need to free the
 // result.
-fn maybeRender(html: bool, row: zqlite.Row, index: usize) RenderResult {
-	if (!html) {
+fn maybeRender(html: bool, tpe: []const u8, row: zqlite.Row, index: usize) RenderResult {
+	if (!html or std.mem.eql(u8, tpe, "link")) {
 		return .{.raw = row.nullableText(index)};
 	}
 
@@ -226,7 +233,8 @@ test "posts.index: json posts" {
 
 	const uid = tc.insert.user(.{.username = "index_post_list"});
 	const p1 = tc.insert.post(.{.user_id = uid, .created = 10, .type = "simple", .text = "the spice must flow"});
-	const p2 = tc.insert.post(.{.user_id = uid, .created = 12, .type = "long", .title = "t1",  .text = "### c1\n\nhi\n\n"});
+	const p2 = tc.insert.post(.{.user_id = uid, .created = 15, .type = "link", .title = "t2",  .text = "https://www.pondz.dev"});
+	const p3 = tc.insert.post(.{.user_id = uid, .created = 12, .type = "long", .title = "t1",  .text = "### c1\n\nhi\n\n"});
 	_ = tc.insert.post(.{.created = 10});
 
 	// test the cache too
@@ -240,9 +248,14 @@ test "posts.index: json posts" {
 			try tc.web.expectJson(.{.posts = .{
 				.{
 					.id = p2,
+					.type = "link",
+					.title = "t2",
+					.text = "https://www.pondz.dev",
+				},
+				.{
+					.id = p3,
 					.type = "long",
 					.title = "t1",
-					.text = "### c1\n\nhi\n\n",
 				},
 				.{
 					.id = p1,
@@ -262,9 +275,14 @@ test "posts.index: json posts" {
 			try tc.web.expectJson(.{.posts = .{
 				.{
 					.id = p2,
+					.type = "link",
+					.title = "t2",
+					.text = "https://www.pondz.dev",
+				},
+				.{
+					.id = p3,
 					.type = "long",
 					.title = "t1",
-					.text = "<h3>c1</h3>\n<p>hi</p>\n",
 				},
 				.{
 					.id = p1,

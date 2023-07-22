@@ -31,17 +31,17 @@ pub fn init(builder: *validate.Builder(void)) !void {
 	}, .{.function = validatePost});
 
 	simple_validator = builder.object(&.{
-		builder.field("text", builder.string(.{.required = true, .max = 500})),
+		builder.field("text", builder.string(.{.required = true, .max = 500, .trim = true})),
 	}, .{});
 
 	link_validator = builder.object(&.{
-		builder.field("title", builder.string(.{.required = true, .max = 200})),
-		builder.field("text", builder.string(.{.required = true, .max = 200})),
+		builder.field("title", builder.string(.{.required = true, .max = 200, .trim = true})),
+		builder.field("text", builder.string(.{.required = true, .max = 200, .trim = true})),
 	}, .{});
 
 	long_validator = builder.object(&.{
-		builder.field("title", builder.string(.{.required = true, .max = 200})),
-		builder.field("text", builder.string(.{.required = true, .max = 5000})),
+		builder.field("title", builder.string(.{.required = true, .max = 200, .trim = true})),
+		builder.field("text", builder.string(.{.required = true, .max = 5000, .trim = true})),
 	}, .{});
 }
 
