@@ -6,10 +6,14 @@ pub fn run(conn: Conn) !void {
 	try conn.execNoArgs("migration.create.users",
 		\\ create table users (
 		\\  id integer primary key,
-		\\  username varchar not null,
-		\\  email varchar null,
-		\\  password varchar not null,
+		\\  username text not null,
+		\\  email text null,
+		\\  password text not null,
 		\\  active bool not null,
+		\\  spam_js text null,
+		\\  spam_load int null,
+		\\  spam_drink text null,
+		\\  spam_hidden text null,
 		\\  reset_password bool not null,
 		\\  created int not null default(unixepoch()),
 		\\  last_login timestamptz null
@@ -22,7 +26,7 @@ pub fn run(conn: Conn) !void {
 
 	try conn.execNoArgs("migration.create.sessions",
 		\\ create table sessions (
-		\\  id varchar not null primary key,
+		\\  id text not null primary key,
 		\\  user_id integer not null,
 		\\  expires timestamptz not null,
 		\\  created int not null default(unixepoch())

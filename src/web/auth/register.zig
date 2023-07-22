@@ -26,7 +26,7 @@ const reserved_usernames = [_][]const u8 {
 	"feedback",
 	"home",
 	"info",
-	"karl" // on no he didn't
+	"karl", // on no he didn't
 	"login",
 	"logout",
 	"news",
@@ -47,6 +47,12 @@ pub fn init(builder: *validate.Builder(void)) void {
 		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN, .function = validateUsername})),
 		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6, .max = 70})),
 		builder.field("email", builder.string(.{.trim = true, .function = validateEmail, .max = 100})),
+
+		// all spam honeypot fields
+		builder.field("load", builder.int(u32, .{})),
+		builder.field("drink", builder.string(.{.trim = true, .max = 50})),
+		builder.field("choice", builder.string(.{.trim = true, .max = 50})),
+		builder.field("comment", builder.string(.{.trim = true, .max = 100})),
 	}, .{});
 }
 
@@ -71,10 +77,23 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	// load the user row
 	const sql =
-		\\ insert into users (username, password, email, active, reset_password)
-		\\ values (?1, ?2, ?3, ?4, ?5)
+		\\ insert into users (
+		\\   username, password, email, active, reset_password,
+		\\   spam_js, spam_load, spam_drink, spam_hidden
+		\\ )
+		\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
 	;
-	const args = .{username, hashed_password, hashed_email, true, false};
+	const args = .{
+		username,
+		hashed_password,
+		hashed_email,
+		true,
+		false,
+		input.get([]u8, "comment"),
+		input.get(u32, "load"),
+		input.get([]u8, "drink"),
+		input.get([]u8, "choice"),
+	};
 
 	const app = env.app;
 	const conn = app.getAuthConn();
@@ -251,7 +270,7 @@ test "auth.register: duplicate username" {
 	try tc.expectInvalid(.{.code = pondz.val.USERNAME_IN_USE, .field = "username"});
 }
 
-test "auth.register: success no email" {
+test "auth.register: success no email and no spam fields" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 
@@ -268,6 +287,10 @@ test "auth.register: success no email" {
 		try t.expectEqual(1, row.get(i64, "active").?);
 		try t.expectEqual(0, row.get(i64, "reset_password").?);
 		try t.expectEqual(null, row.get([]u8, "email"));
+		try t.expectEqual(null, row.get([]u8, "spam_js"));
+		try t.expectEqual(null, row.get([]u8, "spam_load"));
+		try t.expectEqual(null, row.get([]u8, "spam_drink"));
+		try t.expectEqual(null, row.get([]u8, "spam_hidden"));
 		try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
 		try argon2.strVerify(row.get([]u8, "password").?, "reg-passwrd", .{.allocator = tc.arena});
 	}
@@ -279,16 +302,28 @@ test "auth.register: success no email" {
 	}
 }
 
-test "auth.register: success with email" {
+test "auth.register: success with email and all spam fields" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 
-	tc.web.json(.{.username = "reg-user2", .password = "reg-passwrd2", .email = "leto@pondz.dev"});
+	tc.web.json(.{
+		.username = "reg-user2",
+		.password = "reg-passwrd2",
+		.email = "leto@pondz.dev",
+		.load = 1690012313,
+		.drink = "tea",
+		.choice = "should be empty",
+		.comment = "testing"
+	});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(200);
 
-	const row = tc.getAuthRow("select email from users where username = 'reg-user2'", .{}).?;
+	const row = tc.getAuthRow("select * from users where username = 'reg-user2'", .{}).?;
 	try argon2.strVerify(row.get([]u8, "email").?, "leto@pondz.dev", .{.allocator = tc.arena});
+	try t.expectString("testing", row.get([]u8, "spam_js").?);
+	try t.expectEqual(1690012313, row.get(i64, "spam_load").?);
+	try t.expectString("tea", row.get([]u8, "spam_drink").?);
+	try t.expectString("should be empty", row.get([]u8, "spam_hidden").?);
 }
 
 test "auth.validateEmail" {
