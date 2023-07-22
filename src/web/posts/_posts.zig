@@ -1,5 +1,7 @@
 const std = @import("std");
 const typed = @import("typed");
+const zqlite = @import("zqlite");
+const markdown = @import("markdown");
 const validate = @import("validate");
 pub const web = @import("../web.zig");
 
@@ -8,10 +10,12 @@ const Allocator = std.mem.Allocator;
 
 // expose nested routes
 pub const _index = @import("index.zig");
+pub const _show = @import("show.zig");
 pub const _create = @import("create.zig");
 pub const _update = @import("update.zig");
 
 pub const index = _index.handler;
+pub const show = _show.handler;
 pub const create = _create.handler;
 pub const update = _update.handler;
 
@@ -22,6 +26,7 @@ var long_validator: *validate.Object(void) = undefined;
 
 pub fn init(builder: *validate.Builder(void)) !void {
 	_index.init(builder);
+	_show.init(builder);
 
 	const tag_validator = builder.string(.{.trim = true, .max = 20});
 
@@ -43,27 +48,6 @@ pub fn init(builder: *validate.Builder(void)) !void {
 		builder.field("title", builder.string(.{.required = true, .max = 200, .trim = true})),
 		builder.field("text", builder.string(.{.required = true, .max = 5000, .trim = true})),
 	}, .{});
-}
-
-// How the object is validated depends on the `type`
-fn validatePost(optional: ?typed.Map, ctx: *validate.Context(void)) !?typed.Map {
-	// validator won't come this far if the root isn't an object
-	const input = optional.?;
-
-	const PostType = enum {
-		simple, link, long
-	};
-
-	const string_type = input.get([]u8, "type") orelse return null;
-
-	// if type isn't valid, this will fail anyways, so return early
-	const post_type = std.meta.stringToEnum(PostType, string_type) orelse return null;
-
-	switch (post_type) {
-		.simple => _ = return simple_validator.validate(input, ctx),
-		.link => _ = return link_validator.validate(input, ctx),
-		.long => _ = return long_validator.validate(input, ctx),
-	}
 }
 
 pub const Post = struct {
@@ -120,6 +104,68 @@ pub const Post = struct {
 		return prefixed;
 	}
 };
+
+// How the object is validated depends on the `type`
+fn validatePost(optional: ?typed.Map, ctx: *validate.Context(void)) !?typed.Map {
+	// validator won't come this far if the root isn't an object
+	const input = optional.?;
+
+	const PostType = enum {
+		simple, link, long
+	};
+
+	const string_type = input.get([]u8, "type") orelse return null;
+
+	// if type isn't valid, this will fail anyways, so return early
+	const post_type = std.meta.stringToEnum(PostType, string_type) orelse return null;
+
+	switch (post_type) {
+		.simple => _ = return simple_validator.validate(input, ctx),
+		.link => _ = return link_validator.validate(input, ctx),
+		.long => _ = return long_validator.validate(input, ctx),
+	}
+}
+
+// Wraps a nullable text column which may be raw or may be rendered html from
+// markdown. This wrapper allows our caller to call .value() and .deinit()
+// without having to know anything.
+pub const RenderResult = union(enum) {
+	raw: ?[]const u8,
+	html: markdown.Result,
+
+	pub fn value(self: RenderResult) ?[]const u8 {
+		return switch (self) {
+			.raw => |v| v,
+			.html => |html| std.mem.span(html.value),
+		};
+	}
+
+	pub fn deinit(self: RenderResult) void {
+		switch (self) {
+			.raw => {},
+			.html => |html| html.deinit(),
+		}
+	}
+};
+
+// We optionally render markdown to HTML. If we _don't_, then things are
+// straightforward and we return the text column from sqlite as-is.
+// However, if we _are_ rendering, we (a) need a null-terminated string
+// from sqlite (because that's what cmark wants) and we need to free the
+// result.
+pub fn maybeRenderHTML(html: bool, tpe: []const u8, row: zqlite.Row, col: usize) RenderResult {
+	if (!html or std.mem.eql(u8, tpe, "link")) {
+		return .{.raw = row.nullableText(col)};
+	}
+
+	const value = row.nullableTextZ(col) orelse {
+		return .{.raw = null};
+	};
+
+	// we're here because we've been asked to render the value to HTML and
+	// we actually have a value
+	return .{.html = markdown.toHTML(value, row.textLen(col))};
+}
 
 const t = pondz.testing;
 test "posts: normalizeLink" {

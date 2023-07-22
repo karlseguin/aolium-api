@@ -148,14 +148,18 @@ pub const App = struct {
 		return self.data_pools[shard_id].release(conn);
 	}
 
-	pub fn getUserFromUsername(self: *App, username: []const u8) !?*cache.Entry(User) {
+	pub fn getUserFromUsername(self: *App, username: []const u8) !?User {
 		var buf: [pondz.MAX_USERNAME_LEN]u8 = undefined;
 		const lower = std.ascii.lowerString(&buf, username);
 
-		if (try self.user_cache.fetch(*App, lower, loadUserFromUsername, self, .{.ttl = 1800})) |entry| {
-			return entry;
-		}
-		return null;
+		const entry = (try self.user_cache.fetch(*App, lower, loadUserFromUsername, self, .{.ttl = 1800})) orelse {
+			return null;
+		};
+
+		// entry "owns" the user, but user can safely be copied (it's just a couple ints)
+		const user = entry.value;
+		entry.release();
+		return user;
 	}
 
 	// todo: either look this up or make it a consistent hash
@@ -174,6 +178,13 @@ pub const App = struct {
 		};
 	}
 
+	pub fn clearPostCache(self: *App, post_id: [16]u8) void {
+		// TODO: delPrefix tries to minize write locks, but it's still an O(N) on the
+		// cache, this has to switch to be switched to layered cache at some point.
+		_ = self.http_cache.delPrefix(&post_id) catch |err| {
+			logz.err().ctx("app.clearPostCache").err(err).binary("post_id", &post_id).log();
+		};
+	}
 
 	// called on a cache miss from getUserFromUsername
 	fn loadUserFromUsername(self: *App, username: []const u8) !?User {
@@ -207,10 +218,9 @@ test "app: getUserFromUsername" {
 	try t.expectEqual(null, try tc.app.getUserFromUsername("piter"));
 
 	{
-		const ue = (try tc.app.getUserFromUsername("leto")).?;
-		defer ue.release();
-		try t.expectEqual(uid1, ue.value.id);
-		try t.expectEqual(0, ue.value.shard_id);
+		const user = (try tc.app.getUserFromUsername("leto")).?;
+		try t.expectEqual(uid1, user.id);
+		try t.expectEqual(0, user.shard_id);
 	}
 
 	{
@@ -219,16 +229,14 @@ test "app: getUserFromUsername" {
 		defer tc.app.releaseAuthConn(conn);
 		try conn.exec("delete from users where id = ?1", .{uid1});
 
-		const ue = (try tc.app.getUserFromUsername("LETO")).?;
-		defer ue.release();
-		try t.expectEqual(uid1, ue.value.id);
-		try t.expectEqual(0, ue.value.shard_id);
+		const user = (try tc.app.getUserFromUsername("LETO")).?;
+		try t.expectEqual(uid1, user.id);
+		try t.expectEqual(0, user.shard_id);
 	}
 
 	{
-		const ue = (try tc.app.getUserFromUsername("Duncan")).?;
-		defer ue.release();
-		try t.expectEqual(uid2, ue.value.id);
-		try t.expectEqual(0, ue.value.shard_id);
+		const user = (try tc.app.getUserFromUsername("Duncan")).?;
+		try t.expectEqual(uid2, user.id);
+		try t.expectEqual(0, user.shard_id);
 	}
 }

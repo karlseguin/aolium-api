@@ -9,14 +9,7 @@ const pondz = web.pondz;
 
 pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, posts.create_validator, env);
-	const post_id = uuid.parse(req.params.get("id").?) catch {
-		env._validator.?.addInvalidField(.{
-			.field = "id",
-			.err = "is not  valid",
-			.code = validate.codes.TYPE_UUID,
-		});
-		return error.Validation;
-	};
+	const post_id = try web.parseUUID("id", req.params.get("id").?, env);
 
 	const user = env.user.?;
 	const post = try posts.Post.create(req.arena, input);
@@ -46,6 +39,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	}
 
 	app.clearUserCache(user.id);
+	app.clearPostCache(post_id);
 	res.status = 204;
 }
 
@@ -114,6 +108,16 @@ test "posts.update: invalid input" {
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "title"});
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "text"});
 	}
+}
+test "posts.update: invalid id" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	tc.user(.{.id = 1});
+	tc.web.param("id", "nope");
+	tc.web.json(.{.type = "simple", .text = "a"});
+	try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
+	try tc.expectInvalid(.{.code = validate.codes.TYPE_UUID, .field = "id"});
 }
 
 test "posts.update: unknown id" {

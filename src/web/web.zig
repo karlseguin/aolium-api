@@ -1,5 +1,6 @@
 const std = @import("std");
 const logz = @import("logz");
+const uuid = @import("uuid");
 const httpz = @import("httpz");
 const typed = @import("typed");
 const validate = @import("validate");
@@ -39,6 +40,7 @@ pub fn start(app: *App) !void {
 		routes.post("/auth/login", auth.login);
 		routes.post("/auth/register", auth.register);
 		routes.get("/posts", posts.index);
+		routes.get("/posts/:id", posts.show);
 	}
 
 	{
@@ -128,6 +130,17 @@ pub fn validateQuery(req: *httpz.Request, args: []const []const u8, v: *validate
 		return error.Validation;
 	}
 	return input orelse typed.Map.readonlyEmpty();
+}
+
+pub fn parseUUID(field: []const u8, raw: []const u8, env: *Env) ![16]u8 {
+	return uuid.parse(raw) catch {
+		(try env.validator()).addInvalidField(.{
+			.field = field,
+			.err = "is not valid",
+			.code = validate.codes.TYPE_UUID,
+		});
+		return error.Validation;
+	};
 }
 
 pub fn getSessionId(req: *httpz.Request) ?[]const u8 {
