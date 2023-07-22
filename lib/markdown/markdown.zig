@@ -1,5 +1,5 @@
 const std = @import("std");
-const c = @cImport(@cInclude("cmark-pondz.h"));
+const c = @cImport(@cInclude("cmark-aolium.h"));
 
 pub fn init() void {
 	c.init();

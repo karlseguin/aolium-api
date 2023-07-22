@@ -5,10 +5,10 @@ const cache = @import("cache");
 const httpz = @import("httpz");
 const web = @import("web.zig");
 
-const pondz = web.pondz;
-const App = pondz.App;
-const Env = pondz.Env;
-const User = pondz.User;
+const aolium = web.aolium;
+const App = aolium.App;
+const Env = aolium.Env;
+const User = aolium.User;
 
 // TODO: randomize on startup
 var request_id: u32 = 0;
@@ -48,7 +48,7 @@ pub const Dispatcher = struct {
 			error.InvalidJson => code = web.errors.InvalidJson.write(res),
 			error.UserRequired => code = web.errors.AccessDenied.write(res),
 			error.Validation => {
-				code = pondz.codes.VALIDATION_ERROR;
+				code = aolium.codes.VALIDATION_ERROR;
 				res.status = 400;
 				try res.json(.{
 					.err = "validation error",
@@ -57,7 +57,7 @@ pub const Dispatcher = struct {
 				}, .{.emit_null_optional_fields = false});
 			},
 			else => {
-				code = pondz.codes.INTERNAL_SERVER_ERROR_CAUGHT;
+				code = aolium.codes.INTERNAL_SERVER_ERROR_CAUGHT;
 				const error_id = try uuid.allocHex(res.arena);
 
 				res.status = 500;
@@ -122,7 +122,7 @@ fn loadUserFromSessionId(app: *App, session_id: []const u8) !?User {
 	defer app.releaseAuthConn(conn);
 
 	const row = conn.row(sql, args) catch |err| {
-		return pondz.sqliteErr("Dispatcher.loadUser", err, conn, logz.logger());
+		return aolium.sqliteErr("Dispatcher.loadUser", err, conn, logz.logger());
 	} orelse return null;
 	defer row.deinit();
 
@@ -149,7 +149,7 @@ fn encodeRequestId(instance_id: u8, rid: u32) [8]u8 {
 	return encoded;
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "dispatcher: encodeRequestId" {
 	try t.expectString("AAAAAAYA", &encodeRequestId(0, 3));
 	try t.expectString("AAAAABAA", &encodeRequestId(0, 4));
@@ -230,7 +230,7 @@ test "dispatcher: load user" {
 	{
 		// unknown token
 		tc.reset();
-		tc.web.header("authorization", "pondz abc12345558");
+		tc.web.header("authorization", "aolium abc12345558");
 		try dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
 		try tc.web.expectStatus(401);
 		try tc.web.expectJson(.{.code = 6});
@@ -240,7 +240,7 @@ test "dispatcher: load user" {
 		// expired token
 		tc.reset();
 		const sid = tc.insert.session(.{.user_id = user_id1, .ttl = - 1});
-		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "pondz {s}", .{sid}));
+		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "aolium {s}", .{sid}));
 		try dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
 		try tc.web.expectStatus(401);
 		try tc.web.expectJson(.{.code = 7});
@@ -250,7 +250,7 @@ test "dispatcher: load user" {
 		// valid token
 		tc.reset();
 		const sid = tc.insert.session(.{.user_id = user_id1, .ttl = 2});
-		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "pondz {s}", .{sid}));
+		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "aolium {s}", .{sid}));
 		try dispatcher.dispatch(testEchoUser, tc.web.req, tc.web.res);
 		try tc.web.expectJson(.{.id = user_id1});
 	}

@@ -29,7 +29,7 @@ pub fn build(b: *std.Build) !void {
 
 	// setup executable
 	const exe = b.addExecutable(.{
-		.name = "pondz",
+		.name = "aolium",
 		.root_source_file = .{ .path = "src/main.zig" },
 		.target = target,
 		.optimize = optimize,

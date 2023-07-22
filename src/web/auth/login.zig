@@ -6,10 +6,10 @@ const validate = @import("validate");
 const auth = @import("_auth.zig");
 
 const web = auth.web;
-const pondz = web.pondz;
+const aolium = web.aolium;
 const argon2 = std.crypto.pwhash.argon2;
 
-const User = pondz.User;
+const User = aolium.User;
 
 var login_validator: *validate.Object(void) = undefined;
 
@@ -20,7 +20,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 	}, .{});
 }
 
-pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, login_validator, env);
 	const username = input.get([]u8, "username").?;
 
@@ -37,7 +37,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	defer app.releaseAuthConn(conn);
 
 	const row = conn.row(sql, args) catch |err| {
-		return pondz.sqliteErr("login.select", err, conn, env.logger);
+		return aolium.sqliteErr("login.select", err, conn, env.logger);
 	} orelse {
 		// timing attack, username enumeration it's security theater here.
 		return web.notFound(res, "username or password are invalid");
@@ -60,7 +60,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 }
 
 // used by register.zig
-pub fn createSession(env: *pondz.Env, conn: zqlite.Conn, user_data: anytype, res: *httpz.Response) !void {
+pub fn createSession(env: *aolium.Env, conn: zqlite.Conn, user_data: anytype, res: *httpz.Response) !void {
 	const user_id = user_data.id;
 
 	var session_id_buf: [20]u8 = undefined;
@@ -71,7 +71,7 @@ pub fn createSession(env: *pondz.Env, conn: zqlite.Conn, user_data: anytype, res
 		// create the session
 		const session_sql = "insert into sessions (id, user_id, expires) values (?1, ?2, unixepoch() + 86400)";
 		conn.exec(session_sql,.{&session_id, user_id}) catch |err| {
-			return pondz.sqliteErr("sessions.insert", err, conn, env.logger);
+			return aolium.sqliteErr("sessions.insert", err, conn, env.logger);
 		};
 	}
 
@@ -88,7 +88,7 @@ pub fn createSession(env: *pondz.Env, conn: zqlite.Conn, user_data: anytype, res
 	}, .{});
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "auth.login: empty body" {
 	var tc = t.context(.{});
 	defer tc.deinit();

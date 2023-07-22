@@ -5,19 +5,19 @@ const validate = @import("validate");
 const posts = @import("_posts.zig");
 
 const web = posts.web;
-const pondz = web.pondz;
+const aolium = web.aolium;
 const Allocator = std.mem.Allocator;
 
 var show_validator: *validate.Object(void) = undefined;
 
 pub fn init(builder: *validate.Builder(void)) void {
 	show_validator = builder.object(&.{
-		builder.field("username", builder.string(.{.required = true, .max = pondz.MAX_USERNAME_LEN, .trim = true})),
+		builder.field("username", builder.string(.{.required = true, .max = aolium.MAX_USERNAME_LEN, .trim = true})),
 		builder.field("html", builder.boolean(.{.parse = true})),
 	}, .{});
 }
 
-pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateQuery(req, &[_][]const u8{"username", "html"}, show_validator, env);
 	const post_id = try web.parseUUID("id", req.params.get("id").?, env);
 
@@ -41,12 +41,12 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 const PostFetcher = struct {
 	html: bool,
 	post_id: [16]u8,
-	env: *pondz.Env,
-	user: pondz.User,
+	env: *aolium.Env,
+	user: aolium.User,
 	cache_key: [17]u8,
 	arena: std.mem.Allocator,
 
-	fn init(arena: Allocator, env: *pondz.Env, post_id: [16]u8, user: pondz.User, html: bool) PostFetcher {
+	fn init(arena: Allocator, env: *aolium.Env, post_id: [16]u8, user: aolium.User, html: bool) PostFetcher {
 		// post_id + html
 		// 16      + 1
 		var cache_key: [17]u8 = undefined;
@@ -91,7 +91,7 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 		defer app.releaseDataConn(conn, user.shard_id);
 
 		var row = conn.row(sql, args) catch |err| {
-			return pondz.sqliteErr("posts.get", err, conn, env.logger);
+			return aolium.sqliteErr("posts.get", err, conn, env.logger);
 		} orelse {
 			return null;
 		};
@@ -120,7 +120,7 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	};
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "posts.show: missing username" {
 	var tc = t.context(.{});
 	defer tc.deinit();
@@ -168,7 +168,7 @@ test "posts.show: show" {
 
 	const uid = tc.insert.user(.{.username = "index_post_show"});
 	const p1 = tc.insert.post(.{.user_id = uid, .type = "simple", .text = "the spice must flow"});
-	const p2 = tc.insert.post(.{.user_id = uid, .type = "link", .title = "t2", .text = "https://www.pondz.dev"});
+	const p2 = tc.insert.post(.{.user_id = uid, .type = "link", .title = "t2", .text = "https://www.aolium.dev"});
 	const p3 = tc.insert.post(.{.user_id = uid, .type = "long", .title = "t1", .text = "### c1\n\nhi\n\n"});
 
 	// test the cache too
@@ -188,7 +188,7 @@ test "posts.show: show" {
 			tc.web.query("username", "index_post_show");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
-			try tc.web.expectJson(.{.post = .{.id = p2, .type = "link", .title = "t2", .text = "https://www.pondz.dev"}});
+			try tc.web.expectJson(.{.post = .{.id = p2, .type = "link", .title = "t2", .text = "https://www.aolium.dev"}});
 		}
 
 		{
@@ -218,7 +218,7 @@ test "posts.show: show" {
 			tc.web.query("html", "true");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
-			try tc.web.expectJson(.{.post = .{.id = p2, .type = "link", .title = "t2", .text = "https://www.pondz.dev"}});
+			try tc.web.expectJson(.{.post = .{.id = p2, .type = "link", .title = "t2", .text = "https://www.aolium.dev"}});
 		}
 
 		{

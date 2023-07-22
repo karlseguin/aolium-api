@@ -31,16 +31,16 @@ jobs:
       - name: build-x86_64-linux-gnu
         run: |
           zig build -Doptimize=ReleaseFast -Dcpu=skylake -Dtarget=x86_64-linux-gnu
-          mkdir -p release/pondz-x86_64-linux-gnu/
-          mv zig-out/bin/pondz release/pondz-x86_64-linux-gnu/
+          mkdir -p release/aolium-x86_64-linux-gnu/
+          mv zig-out/bin/aolium release/aolium-x86_64-linux-gnu/
 
       - name: create archive
         run: |
           cd release
-          tar -cJf pondz-x86_64-linux-gnu.tar.xz pondz-x86_64-linux-gnu
+          tar -cJf aolium-x86_64-linux-gnu.tar.xz aolium-x86_64-linux-gnu
 
       - name: release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            /home/runner/work/pondz/pondz/release/pondz-x86_64-linux-gnu.tar.xz
+            /home/runner/work/aolium/aolium/release/aolium-x86_64-linux-gnu.tar.xz

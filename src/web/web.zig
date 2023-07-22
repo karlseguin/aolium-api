@@ -4,10 +4,10 @@ const uuid = @import("uuid");
 const httpz = @import("httpz");
 const typed = @import("typed");
 const validate = @import("validate");
-pub const pondz = @import("../pondz.zig");
+pub const aolium = @import("../aolium.zig");
 
-const App = pondz.App;
-const Env = pondz.Env;
+const App = aolium.App;
+const Env = aolium.Env;
 const Allocator = std.mem.Allocator;
 const Dispatcher = @import("dispatcher.zig").Dispatcher;
 
@@ -96,7 +96,7 @@ pub fn notFound(res: *httpz.Response, desc: []const u8) !void {
 	return res.json(.{
 		.desc = desc,
 		.err = "not found",
-		.code = pondz.codes.NOT_FOUND,
+		.code = aolium.codes.NOT_FOUND,
 	}, .{});
 }
 
@@ -145,8 +145,8 @@ pub fn parseUUID(field: []const u8, raw: []const u8, env: *Env) ![16]u8 {
 
 pub fn getSessionId(req: *httpz.Request) ?[]const u8 {
 	const header = req.header("authorization") orelse return null;
-	if (header.len < 10 or std.mem.startsWith(u8, header, "pondz ") == false) return null;
-	return header[6..];
+	if (header.len < 11 or std.mem.startsWith(u8, header, "aolium ") == false) return null;
+	return header[7..];
 }
 
 // pre-generated error messages
@@ -174,7 +174,7 @@ pub const Error = struct {
 
 // bunch of static errors that we can serialize at comptime
 pub const errors = struct {
-	const codes = pondz.codes;
+	const codes = aolium.codes;
 	pub const ServerError = Error.init(500, codes.INTERNAL_SERVER_ERROR_UNCAUGHT, "internal server error");
 	pub const RouterNotFound = Error.init(404, codes.ROUTER_NOT_FOUND, "not found");
 	pub const InvalidJson = Error.init(400, codes.INVALID_JSON, "invalid JSON");
@@ -209,7 +209,7 @@ pub const CachedResponse = struct {
 	}
 };
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "web: Error.write" {
 	var tc = t.context(.{});
 	defer tc.deinit();

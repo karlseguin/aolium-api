@@ -3,17 +3,17 @@ const logz = @import("logz");
 const cache = @import("cache");
 const zqlite = @import("zqlite");
 const web = @import("web/web.zig");
-const pondz = @import("pondz.zig");
+const aolium = @import("aolium.zig");
 const migrations = @import("migrations/migrations.zig");
 
-const User = pondz.User;
-const Config = pondz.Config;
+const User = aolium.User;
+const Config = aolium.Config;
 
 const Allocator = std.mem.Allocator;
 const ValidatorPool = @import("validate").Pool;
 const BufferPool = @import("string_builder").Pool;
 
-const DATA_POOL_COUNT = if (pondz.is_test) 1 else 64;
+const DATA_POOL_COUNT = if (aolium.is_test) 1 else 64;
 const DATA_POOL_MASK = DATA_POOL_COUNT - 1;
 
 pub const App = struct {
@@ -149,7 +149,7 @@ pub const App = struct {
 	}
 
 	pub fn getUserFromUsername(self: *App, username: []const u8) !?User {
-		var buf: [pondz.MAX_USERNAME_LEN]u8 = undefined;
+		var buf: [aolium.MAX_USERNAME_LEN]u8 = undefined;
 		const lower = std.ascii.lowerString(&buf, username);
 
 		const entry = (try self.user_cache.fetch(*App, lower, loadUserFromUsername, self, .{.ttl = 1800})) orelse {
@@ -164,7 +164,7 @@ pub const App = struct {
 
 	// todo: either look this up or make it a consistent hash
 	pub fn getShardId(username: []const u8) usize {
-		var buf: [pondz.MAX_USERNAME_LEN]u8 = undefined;
+		var buf: [aolium.MAX_USERNAME_LEN]u8 = undefined;
 		const lower = std.ascii.lowerString(&buf, username);
 		const hash_code = std.hash.Wyhash.hash(0, lower);
 		return hash_code & DATA_POOL_MASK;
@@ -195,7 +195,7 @@ pub const App = struct {
 		defer self.releaseAuthConn(conn);
 
 		const row = conn.row(sql, args) catch |err| {
-			return pondz.sqliteErr("App.loadUserFromUsername", err, conn, logz.logger());
+			return aolium.sqliteErr("App.loadUserFromUsername", err, conn, logz.logger());
 		} orelse return null;
 
 		defer row.deinit();
@@ -204,7 +204,7 @@ pub const App = struct {
 	}
 };
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "app: getUserFromUsername" {
 	var tc = t.context(.{});
 	defer tc.deinit();

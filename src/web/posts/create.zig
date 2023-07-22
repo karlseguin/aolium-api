@@ -5,9 +5,9 @@ const validate = @import("validate");
 const posts = @import("_posts.zig");
 
 const web = posts.web;
-const pondz = web.pondz;
+const aolium = web.aolium;
 
-pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, posts.create_validator, env);
 	const post = try posts.Post.create(req.arena, input);
 
@@ -24,7 +24,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		defer app.releaseDataConn(conn, user.shard_id);
 
 		conn.exec(sql, args) catch |err| {
-			return pondz.sqliteErr("posts.insert", err, conn, env.logger);
+			return aolium.sqliteErr("posts.insert", err, conn, env.logger);
 		};
 	}
 
@@ -36,7 +36,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	}, .{});
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "posts.create: empty body" {
 	var tc = t.context(.{});
 	defer tc.deinit();

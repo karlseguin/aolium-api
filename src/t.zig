@@ -3,12 +3,12 @@ const logz = @import("logz");
 const uuid = @import("uuid");
 const typed = @import("typed");
 const validate = @import("validate");
-const pondz = @import("pondz.zig");
+const aolium = @import("aolium.zig");
 pub const web = @import("httpz").testing;
 
-const App = pondz.App;
-const Env = pondz.Env;
-const User = pondz.User;
+const App = aolium.App;
+const Env = aolium.Env;
+const User = aolium.User;
 const Allocator = std.mem.Allocator;
 pub const allocator = std.testing.allocator;
 

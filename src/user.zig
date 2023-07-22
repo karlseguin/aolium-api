@@ -1,5 +1,5 @@
-const pondz = @import("pondz.zig");
-const App = pondz.App;
+const aolium = @import("aolium.zig");
+const App = aolium.App;
 
 pub const User = struct {
 	id: i64,

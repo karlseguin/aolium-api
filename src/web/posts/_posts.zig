@@ -5,7 +5,7 @@ const markdown = @import("markdown");
 const validate = @import("validate");
 pub const web = @import("../web.zig");
 
-const pondz = web.pondz;
+const aolium = web.aolium;
 const Allocator = std.mem.Allocator;
 
 // expose nested routes
@@ -167,16 +167,16 @@ pub fn maybeRenderHTML(html: bool, tpe: []const u8, row: zqlite.Row, col: usize)
 	return .{.html = markdown.toHTML(value, row.textLen(col))};
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "posts: normalizeLink" {
-	try t.expectString("http://pondz.dev", try Post.normalizeLink(undefined, "http://pondz.dev"));
-	try t.expectString("HTTP://pondz.dev", try Post.normalizeLink(undefined, "HTTP://pondz.dev"));
+	try t.expectString("http://aolium.dev", try Post.normalizeLink(undefined, "http://aolium.dev"));
+	try t.expectString("HTTP://aolium.dev", try Post.normalizeLink(undefined, "HTTP://aolium.dev"));
 	try t.expectString("https://www.openmymind.net", try Post.normalizeLink(undefined, "https://www.openmymind.net"));
 	try t.expectString("HTTPS://www.openmymind.net", try Post.normalizeLink(undefined, "HTTPS://www.openmymind.net"));
 
 	{
-		const link = try Post.normalizeLink(t.allocator, "pondz.dev");
+		const link = try Post.normalizeLink(t.allocator, "aolium.dev");
 		defer t.allocator.free(link);
-		try t.expectString("https://pondz.dev", link);
+		try t.expectString("https://aolium.dev", link);
 	}
 }

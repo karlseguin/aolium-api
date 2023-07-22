@@ -1,6 +1,6 @@
 const logz = @import("logz");
 const httpz = @import("httpz");
-const pondz = @import("pondz.zig");
+const aolium = @import("aolium.zig");
 const validate = @import("validate");
 
 pub const Config = struct {

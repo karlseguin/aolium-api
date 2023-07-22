@@ -3,9 +3,9 @@ const httpz = @import("httpz");
 const auth = @import("_auth.zig");
 
 const web = auth.web;
-const pondz = web.pondz;
+const aolium = web.aolium;
 
-pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const sql = "delete from sessions where id = ?1";
 	const args = .{web.getSessionId(req)};
 
@@ -14,12 +14,12 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	defer app.releaseAuthConn(conn);
 
 	conn.exec(sql, args) catch |err| {
-		return pondz.sqliteErr("login.select", err, conn, env.logger);
+		return aolium.sqliteErr("login.select", err, conn, env.logger);
 	};
 	res.status = 204;
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 
 test "auth.logout" {
 	var tc = t.context(.{});
@@ -30,7 +30,7 @@ test "auth.logout" {
 
 	{
 		// unknown session_id is no-op
-		tc.web.header("authorization", "pondz nope");
+		tc.web.header("authorization", "aolium nope");
 		try handler(tc.env(), tc.web.req, tc.web.res);
 		try tc.web.expectStatus(204);
 	}
@@ -38,7 +38,7 @@ test "auth.logout" {
 	{
 		// valid
 		tc.reset();
-		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "pondz {s}", .{sid1}));
+		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "aolium {s}", .{sid1}));
 		try handler(tc.env(), tc.web.req, tc.web.res);
 		try tc.web.expectStatus(204);
 

@@ -7,11 +7,11 @@ const auth = @import("_auth.zig");
 const login = @import("login.zig");
 
 const web = auth.web;
-const pondz = web.pondz;
-const User = pondz.User;
+const aolium = web.aolium;
+const User = aolium.User;
 
 const argon2 = std.crypto.pwhash.argon2;
-const ARGON_CONFIG = if (pondz.is_test) argon2.Params.fromLimits(1, 1024) else argon2.Params.interactive_2id;
+const ARGON_CONFIG = if (aolium.is_test) argon2.Params.fromLimits(1, 1024) else argon2.Params.interactive_2id;
 
 var register_validator: *validate.Object(void) = undefined;
 
@@ -20,18 +20,18 @@ const reserved_usernames = [_][]const u8 {
 	"account",
 	"accounts",
 	"admin",
+	"aolium",
 	"auth",
 	"blog",
 	"contact",
 	"feedback",
+	"help",
 	"home",
 	"info",
 	"karl", // on no he didn't
 	"login",
 	"logout",
 	"news",
-	"pond",
-	"pondz",
 	"privacy",
 	"settings",
 	"site",
@@ -44,7 +44,7 @@ const reserved_usernames = [_][]const u8 {
 
 pub fn init(builder: *validate.Builder(void)) void {
 	register_validator = builder.object(&.{
-		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = pondz.MAX_USERNAME_LEN, .function = validateUsername})),
+		builder.field("username", builder.string(.{.required = true, .trim = true, .min = 4, .max = aolium.MAX_USERNAME_LEN, .function = validateUsername})),
 		builder.field("password", builder.string(.{.required = true, .trim = true, .min = 6, .max = 70})),
 		builder.field("email", builder.string(.{.trim = true, .function = validateEmail, .max = 100})),
 
@@ -56,7 +56,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 	}, .{});
 }
 
-pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, register_validator, env);
 	const username = input.get([]u8, "username").?;
 
@@ -101,12 +101,12 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 
 	conn.exec(sql, args) catch |err| {
 		if (!zqlite.isUnique(err)) {
-			return pondz.sqliteErr("register.insert", err, conn, env.logger);
+			return aolium.sqliteErr("register.insert", err, conn, env.logger);
 		}
 		env._validator.?.addInvalidField(.{
 			.field = "username",
 			.err = "is already taken",
-			.code = pondz.val.USERNAME_IN_USE,
+			.code = aolium.val.USERNAME_IN_USE,
 		});
 		return error.Validation;
 	};
@@ -155,7 +155,7 @@ fn validateEmail(value: ?[]const u8, context: *validate.Context(void)) !?[]const
 
 	if (!valid or at_index == 0 or dot_index == email.len - 1) {
 		try context.add(validate.Invalid{
-			.code = pondz.val.INVALID_EMAIL,
+			.code = aolium.val.INVALID_EMAIL,
 			.err = "is not valid",
 		});
 	}
@@ -182,14 +182,14 @@ fn validateUsername(value: ?[]const u8, context: *validate.Context(void)) !?[]co
 
 	if (valid == false) {
 		try context.add(validate.Invalid{
-			.code = pondz.val.INVALID_USERNAME,
+			.code = aolium.val.INVALID_USERNAME,
 			.err = "must begin with a letter, and only contain letters, numbers, unerscore, dot or hyphen",
 		});
 	}
 
 	if (std.sort.binarySearch([]const u8, username, &reserved_usernames, {}, compareString) != null) {
 		try context.add(validate.Invalid{
-			.code = pondz.val.RESERVED_USERNAME,
+			.code = aolium.val.RESERVED_USERNAME,
 			.err = "is reserved",
 		});
 	}
@@ -221,7 +221,7 @@ fn compareString(_: void, key: []const u8, value: []const u8) std.math.Order {
 	return result;
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "auth.register: empty body" {
 	var tc = t.context(.{});
 	defer tc.deinit();
@@ -245,7 +245,7 @@ test "auth.register: invalid input" {
 		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "username"});
 		try tc.expectInvalid(.{.code = validate.codes.REQUIRED, .field = "password"});
-		try tc.expectInvalid(.{.code = pondz.val.INVALID_EMAIL, .field = "email"});
+		try tc.expectInvalid(.{.code = aolium.val.INVALID_EMAIL, .field = "email"});
 	}
 
 	{
@@ -267,7 +267,7 @@ test "auth.register: duplicate username" {
 
 	tc.web.json(.{.username = "dupeusertest", .password = "1234567"});
 	try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
-	try tc.expectInvalid(.{.code = pondz.val.USERNAME_IN_USE, .field = "username"});
+	try tc.expectInvalid(.{.code = aolium.val.USERNAME_IN_USE, .field = "username"});
 }
 
 test "auth.register: success no email and no spam fields" {
@@ -309,7 +309,7 @@ test "auth.register: success with email and all spam fields" {
 	tc.web.json(.{
 		.username = "reg-user2",
 		.password = "reg-passwrd2",
-		.email = "leto@pondz.dev",
+		.email = "leto@aolium.dev",
 		.load = 1690012313,
 		.drink = "tea",
 		.choice = "should be empty",
@@ -319,7 +319,7 @@ test "auth.register: success with email and all spam fields" {
 	try tc.web.expectStatus(200);
 
 	const row = tc.getAuthRow("select * from users where username = 'reg-user2'", .{}).?;
-	try argon2.strVerify(row.get([]u8, "email").?, "leto@pondz.dev", .{.allocator = tc.arena});
+	try argon2.strVerify(row.get([]u8, "email").?, "leto@aolium.dev", .{.allocator = tc.arena});
 	try t.expectString("testing", row.get([]u8, "spam_js").?);
 	try t.expectEqual(1690012313, row.get(i64, "spam_load").?);
 	try t.expectString("tea", row.get([]u8, "spam_drink").?);
@@ -347,7 +347,7 @@ test "auth.validateEmail" {
 	for (invalid_emails) |email| {
 		validator.reset();
 		_ = try validateEmail(email, validator);
-		try validate.testing.expectInvalid(.{.code = pondz.val.INVALID_EMAIL}, validator);
+		try validate.testing.expectInvalid(.{.code = aolium.val.INVALID_EMAIL}, validator);
 	}
 }
 
@@ -373,7 +373,7 @@ test "auth.validateUsername" {
 		for (invalid_usernames) |username| {
 			validator.reset();
 			_ = try validateUsername(username, validator);
-			try validate.testing.expectInvalid(.{.code = pondz.val.INVALID_USERNAME}, validator);
+			try validate.testing.expectInvalid(.{.code = aolium.val.INVALID_USERNAME}, validator);
 		}
 	}
 
@@ -382,13 +382,14 @@ test "auth.validateUsername" {
 		for (reserved_usernames) |reserved| {
 			validator.reset();
 			_ = try validateUsername(reserved, validator);
-			try validate.testing.expectInvalid(.{.code = pondz.val.RESERVED_USERNAME}, validator);
+
+			try validate.testing.expectInvalid(.{.code = aolium.val.RESERVED_USERNAME}, validator);
 
 			// also test the uppercase version
 			validator.reset();
 			const upper = std.ascii.upperString(&buf, reserved);
 			_ = try validateUsername(upper, validator);
-			try validate.testing.expectInvalid(.{.code = pondz.val.RESERVED_USERNAME}, validator);
+			try validate.testing.expectInvalid(.{.code = aolium.val.RESERVED_USERNAME}, validator);
 		}
 	}
 }

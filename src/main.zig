@@ -1,10 +1,10 @@
 const std = @import("std");
 const logz = @import("logz");
 const httpz = @import("httpz");
-const pondz = @import("pondz.zig");
+const aolium = @import("aolium.zig");
 
-const App = pondz.App;
-const Config = pondz.Config;
+const App = aolium.App;
+const Config = aolium.Config;
 const Allocator = std.mem.Allocator;
 
 pub fn main() !void {
@@ -40,10 +40,10 @@ pub fn main() !void {
 	try @import("web/web.zig").start(&app);
 }
 
-fn parseArgs(allocator: Allocator) !pondz.Config {
+fn parseArgs(allocator: Allocator) !aolium.Config {
 	const yazap = @import("yazap");
 
-	var app = yazap.App.init(allocator, "pondz", "A pondz server");
+	var app = yazap.App.init(allocator, "aolium", "A aolium server");
 
 	var cmd = app.rootCommand();
 	try cmd.addArg(yazap.Arg.booleanOption("version", 'v', "Print the version and exit"));
@@ -62,7 +62,7 @@ fn parseArgs(allocator: Allocator) !pondz.Config {
 	};
 
 	if (args.containsArg("version")) {
-		try std.io.getStdOut().writer().print("{s}", .{pondz.version});
+		try std.io.getStdOut().writer().print("{s}", .{aolium.version});
 		std.os.exit(0);
 	}
 
@@ -132,7 +132,7 @@ fn parseArgs(allocator: Allocator) !pondz.Config {
 	};
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test {
 	t.setup();
 	std.testing.refAllDecls(@This());

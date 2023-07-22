@@ -1,10 +1,10 @@
 const logz = @import("logz");
 const cache = @import("cache");
-const pondz = @import("pondz.zig");
+const aolium = @import("aolium.zig");
 const validate = @import("validate");
 
-const App = pondz.App;
-const User = pondz.User;
+const App = aolium.App;
+const User = aolium.User;
 
 pub const Env = struct {
 	// If a user is loaded, it comes from the cache, which uses reference counting

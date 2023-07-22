@@ -5,9 +5,9 @@ const validate = @import("validate");
 const posts = @import("_posts.zig");
 
 const web = posts.web;
-const pondz = web.pondz;
+const aolium = web.aolium;
 
-pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void {
+pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, posts.create_validator, env);
 	const post_id = try web.parseUUID("id", req.params.get("id").?, env);
 
@@ -30,7 +30,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 		defer app.releaseDataConn(conn, user.shard_id);
 
 		conn.exec(sql, args) catch |err| {
-			return pondz.sqliteErr("posts.update", err, conn, env.logger);
+			return aolium.sqliteErr("posts.update", err, conn, env.logger);
 		};
 
 		if (conn.changes() == 0) {
@@ -43,7 +43,7 @@ pub fn handler(env: *pondz.Env, req: *httpz.Request, res: *httpz.Response) !void
 	res.status = 204;
 }
 
-const t = pondz.testing;
+const t = aolium.testing;
 test "posts.update: empty body" {
 	var tc = t.context(.{});
 	defer tc.deinit();

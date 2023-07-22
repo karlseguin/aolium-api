@@ -4,4 +4,4 @@ t:
 
 .PHONY: s
 s:
-	zig build run -freference-trace -- --root /tmp/pondz/ --log_http
+	zig build run -freference-trace -- --root /tmp/aolium/ --log_http
