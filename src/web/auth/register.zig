@@ -49,9 +49,9 @@ pub fn init(builder: *validate.Builder(void)) void {
 
 		// all spam honeypot fields
 		builder.field("load", builder.int(u32, .{})),
-		builder.field("drink", builder.string(.{.trim = true, .max = 50})),
-		builder.field("choice", builder.string(.{.trim = true, .max = 50})),
+		builder.field("drink", builder.string(.{.required = true, .trim = true, .max = 50})),
 		builder.field("comment", builder.string(.{.trim = true, .max = 100})),
+		builder.field("choice", builder.string(.{.trim = true, .max = 50})),
 	}, .{});
 }
 
@@ -264,7 +264,7 @@ test "auth.register: duplicate username" {
 
 	_ = tc.insert.user(.{.username = "DupeUserTest"});
 
-	tc.web.json(.{.username = "dupeusertest", .password = "1234567"});
+	tc.web.json(.{.username = "dupeusertest", .password = "1234567", .drink = "no"});
 	try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
 	try tc.expectInvalid(.{.code = aolium.val.USERNAME_IN_USE, .field = "username"});
 }
@@ -273,7 +273,7 @@ test "auth.register: success no email and no spam fields" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 
-	tc.web.json(.{.username = "reg-user", .password = "reg-passwrd"});
+	tc.web.json(.{.username = "reg-user", .password = "reg-passwrd", .drink = "tea"});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(200);
 
@@ -282,14 +282,14 @@ test "auth.register: success no email and no spam fields" {
 	const session_id = body.get("session_id").?.string;
 
 	{
-		const row = tc.getAuthRow("select password, active, reset_password, email, created from users where id = ?1", .{user_id}).?;
+		const row = tc.getAuthRow("select * from users where id = ?1", .{user_id}).?;
 		try t.expectEqual(1, row.get(i64, "active").?);
 		try t.expectEqual(0, row.get(i64, "reset_password").?);
 		try t.expectEqual(null, row.get([]u8, "email"));
 		try t.expectEqual(null, row.get([]u8, "spam_js"));
 		try t.expectEqual(null, row.get([]u8, "spam_load"));
-		try t.expectEqual(null, row.get([]u8, "spam_drink"));
 		try t.expectEqual(null, row.get([]u8, "spam_hidden"));
+		try t.expectString("tea", row.get([]u8, "spam_drink").?);
 		try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
 		try argon2.strVerify(row.get([]u8, "password").?, "reg-passwrd", .{.allocator = tc.arena});
 	}
@@ -310,7 +310,7 @@ test "auth.register: success with email and all spam fields" {
 		.password = "reg-passwrd2",
 		.email = "leto@aolium.dev",
 		.load = 1690012313,
-		.drink = "tea",
+		.drink = "coffee",
 		.choice = "should be empty",
 		.comment = "testing"
 	});
@@ -321,7 +321,7 @@ test "auth.register: success with email and all spam fields" {
 	try argon2.strVerify(row.get([]u8, "email").?, "leto@aolium.dev", .{.allocator = tc.arena});
 	try t.expectString("testing", row.get([]u8, "spam_js").?);
 	try t.expectEqual(1690012313, row.get(i64, "spam_load").?);
-	try t.expectString("tea", row.get([]u8, "spam_drink").?);
+	try t.expectString("coffee", row.get([]u8, "spam_drink").?);
 	try t.expectString("should be empty", row.get([]u8, "spam_hidden").?);
 }
 

@@ -18,12 +18,13 @@ pub fn init(builder: *validate.Builder(void)) void {
 		builder.field("username", builder.string(.{.required = true, .max = aolium.MAX_USERNAME_LEN, .trim = true})),
 		builder.field("atom", builder.boolean(.{.parse = true})),
 		builder.field("html", builder.boolean(.{.parse = true})),
+		builder.field("full", builder.boolean(.{.parse = true})),
 		builder.field("page", builder.int(u16, .{.parse = true, .min = 1})),
 	}, .{});
 }
 
 pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
-	const input = try web.validateQuery(req, &[_][]const u8{"username", "html", "atom"}, index_validator, env);
+	const input = try web.validateQuery(req, &[_][]const u8{"username", "html", "atom", "full"}, index_validator, env);
 
 	const app = env.app;
 	const username = input.get([]u8, "username").?;
@@ -32,11 +33,12 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	};
 
 	const atom = input.get(bool, "atom") orelse false;
-	const html = input.get(bool, "html") orelse false;
+	const html = input.get(bool, "html") orelse true;
+	const full = input.get(bool, "full") orelse true;
 	// only do first page for atom
 	const page = if (atom) 1 else input.get(u16, "page") orelse 1;
 
-	const fetcher = PostsFetcher.init(req.arena, env, user, username, page, html, atom);
+	const fetcher = PostsFetcher.init(req.arena, env, user, username, page, html, atom, full);
 
 	const cached_response = (try app.http_cache.fetch(*const PostsFetcher, &fetcher.cache_key, PostsFetcher.getPosts, &fetcher, .{.ttl = 300})).?;
 	defer cached_response.release();
@@ -47,21 +49,24 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 const PostsFetcher = struct {
 	atom: bool,
 	html: bool,
+	full: bool,
 	page: u16,
 	env: *aolium.Env,
 	user: aolium.User,
-	cache_key: [12]u8,
+	cache_key: [11]u8,
 	username: []const u8,
 	arena: std.mem.Allocator,
 
-	fn init(arena: Allocator, env: *aolium.Env, user: aolium.User, username: []const u8, page: u16, html: bool, atom: bool) PostsFetcher {
-		// user_id + page + html + atom
-		// 8       + 2    + 1    + 1
-		var cache_key: [12]u8 = undefined;
+	fn init(arena: Allocator, env: *aolium.Env, user: aolium.User, username: []const u8, page: u16, html: bool, atom: bool, full: bool) PostsFetcher {
+		// user_id + page + (html | atom | full)
+		// 8       + 2    + 1
+		var cache_key: [11]u8 = undefined;
 		@memcpy(cache_key[0..8], std.mem.asBytes(&user.id));
 		@memcpy(cache_key[8..10], std.mem.asBytes(&page));
 		cache_key[10] = if (html) 1 else 0;
-		cache_key[11] = if (atom) 1 else 0;
+		cache_key[10] |= if (atom) 2 else 0;
+		cache_key[10] |= if (full) 4 else 0;
+
 
 		return .{
 			.env = env,
@@ -69,6 +74,7 @@ const PostsFetcher = struct {
 			.page = page,
 			.html = html,
 			.atom = atom,
+			.full = full,
 			.arena = arena,
 			.username = username,
 			.cache_key = cache_key,
@@ -117,9 +123,9 @@ const PostsFetcher = struct {
 
 		const sql =
 			\\ select id, type, title,
-			\\   case type
-			\\     when 'long' then null
-			\\     else text
+			\\   case
+			\\     when ?3 or type != 'long' then text
+			\\     else null
 			\\   end as text,
 			\\   created, updated
 			\\ from posts
@@ -127,7 +133,7 @@ const PostsFetcher = struct {
 			\\ order by created desc
 			\\ limit 20 offset ?2
 		;
-		const args = .{user.id, offset};
+		const args = .{user.id, offset, self.full};
 
 		{
 			var rows = conn.rows(sql, args) catch |err| {
@@ -335,6 +341,7 @@ test "posts.index: json list" {
 		{
 			// raw output
 			tc.reset();
+			tc.web.query("html", "false");
 			tc.web.query("username", "index_post_list");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
@@ -349,6 +356,7 @@ test "posts.index: json list" {
 					.id = p3,
 					.type = "long",
 					.title = "t1",
+					.text = "### c1\n\nhi\n\n"
 				},
 				.{
 					.id = p1,
@@ -361,7 +369,6 @@ test "posts.index: json list" {
 		{
 			// html output
 			tc.reset();
-			tc.web.query("html", "true");
 			tc.web.query("username", "index_post_list");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
@@ -376,6 +383,7 @@ test "posts.index: json list" {
 					.id = p3,
 					.type = "long",
 					.title = "t1",
+					.text = "<h3>c1</h3>\n<p>hi</p>\n"
 				},
 				.{
 					.id = p1,
@@ -426,6 +434,7 @@ test "posts.index: atom list" {
 			// raw output
 			tc.reset();
 			tc.web.query("username", "index_post_atom");
+			tc.web.query("html", "false");
 			tc.web.query("atom", "1");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
@@ -470,7 +479,6 @@ test "posts.index: atom list" {
 			// html output
 			tc.reset();
 			tc.web.query("username", "index_post_atom");
-			tc.web.query("html", "true");
 			tc.web.query("atom", "True");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
