@@ -183,7 +183,7 @@ const PostsFetcher = struct {
 		const user = self.user;
 
 		const sql =
-			\\ select id, title, text, updated
+			\\ select id, title, text, created, updated
 			\\ from posts
 			\\ where user_id = ?1
 			\\ order by created desc
@@ -210,7 +210,7 @@ const PostsFetcher = struct {
 					return;
 				};
 
-				try self.atomEnvelop(buf, &datetime.fromTimestamp(@intCast(row.int(3))).toRFC3339());
+				try self.atomEnvelop(buf, &datetime.fromTimestamp(@intCast(row.int(4))).toRFC3339());
 				try self.atomEntry(buf, row);
 			}
 
@@ -227,6 +227,7 @@ const PostsFetcher = struct {
 
 		try std.fmt.format(buf.writer(),
 			\\<?xml version="1.0" encoding="utf-8"?>
+			\\<?xml-stylesheet href="/assets/feed.xsl" type="text/xsl"?>
 			\\<feed xmlns="http://www.w3.org/2005/Atom">
 			\\	<title>{s} - aolium</title>
 			\\	<link href="https://www.aolium.com/{s}.xml" rel="self"/>
@@ -243,7 +244,8 @@ const PostsFetcher = struct {
 
 		var id_buf: [36]u8 = undefined;
 		const id = uuid.toString(row.blob(0), &id_buf);
-		const updated = datetime.fromTimestamp(@intCast(row.int(3))).toRFC3339();
+		const created = datetime.fromTimestamp(@intCast(row.int(3))).toRFC3339();
+		const updated = datetime.fromTimestamp(@intCast(row.int(4))).toRFC3339();
 
 		const content_type = if (html) "html" else "text";
 		try buf.write("\t<entry>\n\t\t<title>");
@@ -257,11 +259,12 @@ const PostsFetcher = struct {
 		}
 
 		try std.fmt.format(buf.writer(), \\</title>
-		\\		<link href="https://www.aolium.com/{s}/{s}"/>
+		\\		<link rel="alternate" href="https://www.aolium.com/{s}/{s}"/>
+		\\		<published>{s}</published>
 		\\		<updated>{s}</updated>
-		\\		<id>{s}</id>
+		\\		<id>https://www.aolium.com/{s}/{s}</id>
 		\\		<content type="{s}">
-		, .{self.username, id, updated, id, content_type});
+		, .{self.username, id, created, updated, self.username, id, content_type});
 
 		// don't pass a type, we want to render html even for a link
 		const content = posts.maybeRenderHTML(html, "", row, 2);
@@ -407,6 +410,7 @@ test "posts.index: no posts atom" {
 	try tc.web.expectHeader("Content-Type", "application/xml");
 	try tc.web.expectBody(
 \\<?xml version="1.0" encoding="utf-8"?>
+\\<?xml-stylesheet href="/assets/feed.xsl" type="text/xsl"?>
 \\<feed xmlns="http://www.w3.org/2005/Atom">
 \\	<title>index_no_post - aolium</title>
 \\	<link href="https://www.aolium.com/index_no_post.xml" rel="self"/>
@@ -423,9 +427,9 @@ test "posts.index: atom list" {
 	defer tc.deinit();
 
 	const uid = tc.insert.user(.{.username = "index_post_atom"});
-	const p1 = tc.insert.post(.{.user_id = uid, .created = 1291323924, .updated = 1291323924, .type = "simple", .text = "the spice & must flow this is a really long text that won't fit as a title if it's large than 80 characters"});
-	const p2 = tc.insert.post(.{.user_id = uid, .created = 1690081558, .updated = 1690081558, .type = "link", .title = "t2", .text = "https://www.aolium.com"});
-	const p3 = tc.insert.post(.{.user_id = uid, .created = 1680081558, .updated = 1680081558, .type = "long", .title = "t1", .text = "### c1\n\nhi\n\n"});
+	const p1 = tc.insert.post(.{.user_id = uid, .created = 1281323924, .updated = 1291323924, .type = "simple", .text = "the spice & must flow this is a really long text that won't fit as a title if it's large than 80 characters"});
+	const p2 = tc.insert.post(.{.user_id = uid, .created = 1670081558, .updated = 1690081558, .type = "link", .title = "t2", .text = "https://www.aolium.com"});
+	const p3 = tc.insert.post(.{.user_id = uid, .created = 1670081558, .updated = 1680081558, .type = "long", .title = "t1", .text = "### c1\n\nhi\n\n"});
 	_ = tc.insert.post(.{.created = 1890081558, .updated = 1890081558});
 
 	// test the cache too
@@ -441,6 +445,7 @@ test "posts.index: atom list" {
 			try tc.web.expectHeader("Content-Type", "application/xml");
 			try tc.web.expectBody(try std.fmt.allocPrint(tc.arena,
 				\\<?xml version="1.0" encoding="utf-8"?>
+				\\<?xml-stylesheet href="/assets/feed.xsl" type="text/xsl"?>
 				\\<feed xmlns="http://www.w3.org/2005/Atom">
 				\\	<title>index_post_atom - aolium</title>
 				\\	<link href="https://www.aolium.com/index_post_atom.xml" rel="self"/>
@@ -450,25 +455,28 @@ test "posts.index: atom list" {
 				\\	<author><name>index_post_atom</name></author>
 				\\	<entry>
 				\\		<title>t2</title>
-				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<link rel="alternate" href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<published>2022-12-03T15:32:38Z</published>
 				\\		<updated>2023-07-23T03:05:58Z</updated>
-				\\		<id>{s}</id>
+				\\		<id>https://www.aolium.com/index_post_atom/{s}</id>
 				\\		<content type="text">https://www.aolium.com</content>
 				\\	</entry>
 				\\	<entry>
 				\\		<title>t1</title>
-				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<link rel="alternate" href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<published>2022-12-03T15:32:38Z</published>
 				\\		<updated>2023-03-29T09:19:18Z</updated>
-				\\		<id>{s}</id>
+				\\		<id>https://www.aolium.com/index_post_atom/{s}</id>
 				\\		<content type="text">### c1
 				\\
 				\\hi</content>
 				\\	</entry>
 				\\	<entry>
 				\\		<title>the spice &amp; must flow this is a really long text that won't fit as a title if it ...</title>
-				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<link rel="alternate" href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<published>2010-08-09T03:18:44Z</published>
 				\\		<updated>2010-12-02T21:05:24Z</updated>
-				\\		<id>{s}</id>
+				\\		<id>https://www.aolium.com/index_post_atom/{s}</id>
 				\\		<content type="text">the spice &amp; must flow this is a really long text that won't fit as a title if it's large than 80 characters</content>
 				\\	</entry>
 				\\</feed>
@@ -484,6 +492,7 @@ test "posts.index: atom list" {
 			try handler(tc.env(), tc.web.req, tc.web.res);
 			try tc.web.expectBody(try std.fmt.allocPrint(tc.arena,
 				\\<?xml version="1.0" encoding="utf-8"?>
+				\\<?xml-stylesheet href="/assets/feed.xsl" type="text/xsl"?>
 				\\<feed xmlns="http://www.w3.org/2005/Atom">
 				\\	<title>index_post_atom - aolium</title>
 				\\	<link href="https://www.aolium.com/index_post_atom.xml" rel="self"/>
@@ -493,24 +502,27 @@ test "posts.index: atom list" {
 				\\	<author><name>index_post_atom</name></author>
 				\\	<entry>
 				\\		<title>t2</title>
-				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<link rel="alternate" href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<published>2022-12-03T15:32:38Z</published>
 				\\		<updated>2023-07-23T03:05:58Z</updated>
-				\\		<id>{s}</id>
+				\\		<id>https://www.aolium.com/index_post_atom/{s}</id>
 				\\		<content type="html">&lt;p&gt;&lt;a href="https://www.aolium.com"&gt;https://www.aolium.com&lt;/a&gt;&lt;/p&gt;</content>
 				\\	</entry>
 				\\	<entry>
 				\\		<title>t1</title>
-				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<link rel="alternate" href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<published>2022-12-03T15:32:38Z</published>
 				\\		<updated>2023-03-29T09:19:18Z</updated>
-				\\		<id>{s}</id>
+				\\		<id>https://www.aolium.com/index_post_atom/{s}</id>
 				\\		<content type="html">&lt;h3&gt;c1&lt;/h3&gt;
 				\\&lt;p&gt;hi&lt;/p&gt;</content>
 				\\	</entry>
 				\\	<entry>
 				\\		<title>the spice &amp; must flow this is a really long text that won't fit as a title if it ...</title>
-				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<link rel="alternate" href="https://www.aolium.com/index_post_atom/{s}"/>
+				\\		<published>2010-08-09T03:18:44Z</published>
 				\\		<updated>2010-12-02T21:05:24Z</updated>
-				\\		<id>{s}</id>
+				\\		<id>https://www.aolium.com/index_post_atom/{s}</id>
 				\\		<content type="html">&lt;p&gt;the spice &amp; must flow this is a really long text that won't fit as a title if it's large than 80 characters&lt;/p&gt;</content>
 				\\	</entry>
 				\\</feed>
