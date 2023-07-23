@@ -234,39 +234,35 @@ const PostsFetcher = struct {
 
 	fn atomEntry(self: *const PostsFetcher, buf: *buffer.Buffer, row: zqlite.Row) !void {
 		const html = self.html;
-		var writer = buf.writer();
 
 		var id_buf: [36]u8 = undefined;
 		const id = uuid.toString(row.blob(0), &id_buf);
 		const updated = datetime.fromTimestamp(@intCast(row.int(3))).toRFC3339();
 
-		var title_extra: []const u8 = "";
-		var title = if (row.nullableText(1)) |tt| tt else row.text(2);
-		if (title.len > 80) {
-			title_extra = "...";
-			title = title[0..80];
+		const content_type = if (html) "html" else "text";
+		try buf.write("\t<entry>\n\t\t<title>");
+
+		const title = if (row.nullableText(1)) |tt| tt else row.text(2);
+		if (title.len < 80) {
+			try writeEscapeXML(buf, title, false);
+		} else {
+			try writeEscapeXML(buf, title[0..80], false);
+			try buf.write(" ...");
 		}
 
-		const content_type = if (html) "html" else "text";
-		try std.fmt.format(writer,
-		\\	<entry>
-		\\		<title>{s}{s}</title>
+		try std.fmt.format(buf.writer(), \\</title>
 		\\		<link href="https://www.aolium.com/{s}/{s}"/>
 		\\		<updated>{s}</updated>
 		\\		<id>{s}</id>
 		\\		<content type="{s}">
-		, .{title, title_extra, self.username, id, updated, id, content_type});
+		, .{self.username, id, updated, id, content_type});
 
 		// don't pass a type, we want to render html even for a link
 		const content = posts.maybeRenderHTML(html, "", row, 2);
 		defer content.deinit();
 		var content_value = std.mem.trim(u8, content.value().?, &std.ascii.whitespace);
 
-		if (html) {
-			try writeEscapedHTML(buf, content_value);
-		} else {
-			try buf.write(content_value);
-		}
+		try writeEscapeXML(buf, content_value, html);
 		try buf.write("</content>\n\t</entry>\n");
 	}
 };
@@ -274,15 +270,13 @@ const PostsFetcher = struct {
 // our buffer likely has plenty of spare space, but we can't be sure. We'll use
 // the ensureUnusedCapacity function which lets us write using XAssumeCapacity
 // variants, which lets us avoid _a lot_of bound checking. But we aren't sure
-// how much capacity to reserve. Worst case is html.len * 4, if the html is
+// how much capacity to reserve. Worst case is html.len * 5, if the html is
 // just a bunch of opening and closing tags. So we'll:
-//    ensureUnusedCapacity(html.len * 4)
+//    ensureUnusedCapacity(html.len * 5)
 // but in small chunks of 1000.
-//
-// Note: we expect the HTML to come from cmark_render_html, which already escapes
-// & => &amp;
-fn writeEscapedHTML(buf: *buffer.Buffer, html: []const u8) !void {
-	var raw = html;
+// Note: when the we're writing from the output of cmark, & is alreay escaped
+fn writeEscapeXML(buf: *buffer.Buffer, content: []const u8, amp_escaped: bool) !void {
+	var raw = content;
 	while (raw.len > 0) {
 		const chunk_size = if (raw.len > 1000) 1000 else raw.len;
 		try buf.ensureUnusedCapacity(chunk_size * 4);
@@ -290,6 +284,7 @@ fn writeEscapedHTML(buf: *buffer.Buffer, html: []const u8) !void {
 			switch (b) {
 				'>' => buf.writeAssumeCapacity("&gt;"),
 				'<' => buf.writeAssumeCapacity("&lt;"),
+				'&' => if (amp_escaped) buf.writeByteAssumeCapacity(b) else buf.writeAssumeCapacity("&amp;"),
 				else => buf.writeByteAssumeCapacity(b),
 			}
 		}
@@ -461,11 +456,11 @@ test "posts.index: atom list" {
 				\\hi</content>
 				\\	</entry>
 				\\	<entry>
-				\\		<title>the spice & must flow this is a really long text that won't fit as a title if it...</title>
+				\\		<title>the spice &amp; must flow this is a really long text that won't fit as a title if it ...</title>
 				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
 				\\		<updated>2010-12-02T21:05:24Z</updated>
 				\\		<id>{s}</id>
-				\\		<content type="text">the spice & must flow this is a really long text that won't fit as a title if it's large than 80 characters</content>
+				\\		<content type="text">the spice &amp; must flow this is a really long text that won't fit as a title if it's large than 80 characters</content>
 				\\	</entry>
 				\\</feed>
 			, .{p2, p2, p3, p3, p1, p1}));
@@ -504,7 +499,7 @@ test "posts.index: atom list" {
 				\\&lt;p&gt;hi&lt;/p&gt;</content>
 				\\	</entry>
 				\\	<entry>
-				\\		<title>the spice & must flow this is a really long text that won't fit as a title if it...</title>
+				\\		<title>the spice &amp; must flow this is a really long text that won't fit as a title if it ...</title>
 				\\		<link href="https://www.aolium.com/index_post_atom/{s}"/>
 				\\		<updated>2010-12-02T21:05:24Z</updated>
 				\\		<id>{s}</id>
