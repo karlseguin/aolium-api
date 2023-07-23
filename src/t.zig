@@ -292,7 +292,7 @@ const Inserter = struct {
 
 		const sql =
 			\\ insert into posts (id, user_id, title, text, type, created, updated)
-			\\ values (?1, ?2, ?3, ?4, ?5, unixepoch() + ?6, unixepoch() + ?7)
+			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 		;
 		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", p.created, p.updated};
 

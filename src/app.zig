@@ -11,7 +11,7 @@ const Config = aolium.Config;
 
 const Allocator = std.mem.Allocator;
 const ValidatorPool = @import("validate").Pool;
-const BufferPool = @import("string_builder").Pool;
+const BufferPool = @import("buffer").Pool;
 
 const DATA_POOL_COUNT = if (aolium.is_test) 1 else 64;
 const DATA_POOL_MASK = DATA_POOL_COUNT - 1;

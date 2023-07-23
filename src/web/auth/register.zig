@@ -20,7 +20,6 @@ const reserved_usernames = [_][]const u8 {
 	"account",
 	"accounts",
 	"admin",
-	"aolium",
 	"auth",
 	"blog",
 	"contact",

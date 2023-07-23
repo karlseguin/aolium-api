@@ -136,7 +136,7 @@ test "posts.update: post belongs to a different user" {
 	defer tc.deinit();
 
 	tc.user(.{.id = 1});
-	const id = tc.insert.post(.{.user_id = 4, .text = "hack-proof", .updated = -1000, .created = -1000});
+	const id = tc.insert.post(.{.user_id = 4, .text = "hack-proof", .updated = 52, .created = 50});
 
 	tc.web.param("id", id);
 	tc.web.json(.{.type = "simple", .text = "hello world!!"});
@@ -148,8 +148,8 @@ test "posts.update: post belongs to a different user" {
 	try t.expectString("simple", row.get([]u8, "type").?);
 	try t.expectString("hack-proof", row.get([]u8, "text").?);
 	try t.expectEqual(null, row.get([]u8, "title"));
-	try t.expectDelta(std.time.timestamp() - 1000, row.get(i64, "created").?, 2);
-	try t.expectDelta(std.time.timestamp() - 1000, row.get(i64, "updated").?, 2);
+	try t.expectEqual(50, row.get(i64, "created").?);
+	try t.expectEqual(52, row.get(i64, "updated").?);
 }
 
 test "posts.update: simple" {
@@ -157,7 +157,7 @@ test "posts.update: simple" {
 	defer tc.deinit();
 
 	tc.user(.{.id = 3913});
-	const id = tc.insert.post(.{.user_id = 3913, .updated = -1000, .created = -1000});
+	const id = tc.insert.post(.{.user_id = 3913, .updated = 1000, .created = 33});
 
 	tc.web.param("id", id);
 	tc.web.json(.{.type = "simple", .text = "hello world!!"});
@@ -169,7 +169,7 @@ test "posts.update: simple" {
 	try t.expectString("simple", row.get([]u8, "type").?);
 	try t.expectString("hello world!!", row.get([]u8, "text").?);
 	try t.expectEqual(null, row.get([]u8, "title"));
-	try t.expectDelta(std.time.timestamp() - 1000, row.get(i64, "created").?, 2);
+	try t.expectEqual(33, row.get(i64, "created").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
 }
 
@@ -178,7 +178,7 @@ test "posts.update: link" {
 	defer tc.deinit();
 
 	tc.user(.{.id = 3914});
-	const id = tc.insert.post(.{.user_id = 3914, .updated = -1500, .created = -1500});
+	const id = tc.insert.post(.{.user_id = 3914, .updated = 1500, .created = 222});
 
 	tc.web.param("id", id);
 	tc.web.json(.{.type = "link", .title = "FFmpeg - The Ultimate Guide", .text = "img.ly/blog/ultimate-guide-to-ffmpeg/"});
@@ -189,7 +189,7 @@ test "posts.update: link" {
 	try t.expectString("link", row.get([]u8, "type").?);
 	try t.expectString("https://img.ly/blog/ultimate-guide-to-ffmpeg/", row.get([]u8, "text").?);
 	try t.expectString("FFmpeg - The Ultimate Guide", row.get([]u8, "title").?);
-	try t.expectDelta(std.time.timestamp() - 1500, row.get(i64, "created").?, 2);
+	try t.expectEqual(222, row.get(i64, "created").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
 }
 
@@ -198,7 +198,7 @@ test "posts.update: long" {
 	defer tc.deinit();
 
 	tc.user(.{.id = 441});
-	const id = tc.insert.post(.{.user_id = 441, .updated = -500, .created = -200});
+	const id = tc.insert.post(.{.user_id = 441, .updated = -500, .created = 503});
 
 	tc.web.param("id", id);
 	tc.web.json(.{.type = "long", .title = "A Title!", .text = "Some !content\nOk", .tags = .{"t1", "soup"}});
@@ -210,6 +210,6 @@ test "posts.update: long" {
 	try t.expectString("Some !content\nOk", row.get([]u8, "text").?);
 	try t.expectString("A Title!", row.get([]u8, "title").?);
 	try t.expectString("[\"t1\",\"soup\"]", row.get([]u8, "tags").?);
-	try t.expectDelta(std.time.timestamp() - 200, row.get(i64, "created").?, 2);
+	try t.expectEqual(503, row.get(i64, "created").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
 }

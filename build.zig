@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) !void {
 	try modules.put("logz", b.dependency("logz", dep_opts).module("logz"));
 	try modules.put("httpz", b.dependency("httpz", dep_opts).module("httpz"));
 	try modules.put("cache", b.dependency("cache", dep_opts).module("cache"));
-	try modules.put("string_builder", b.dependency("string_builder", dep_opts).module("string_builder"));
+	try modules.put("buffer", b.dependency("buffer", dep_opts).module("buffer"));
 	try modules.put("typed", b.dependency("typed", dep_opts).module("typed"));
 	try modules.put("validate", b.dependency("validate", dep_opts).module("validate"));
 	try modules.put("yazap", b.dependency("yazap", dep_opts).module("yazap"));
@@ -26,6 +26,7 @@ pub fn build(b: *std.Build) !void {
 	// local libraries
 	try modules.put("uuid", b.addModule("uuid", .{.source_file = .{.path = "lib/uuid/uuid.zig"}}));
 	try modules.put("markdown", b.addModule("markdown", .{.source_file = .{.path = "lib/markdown/markdown.zig"}}));
+	try modules.put("datetime", b.addModule("datetime", .{.source_file = .{.path = "lib/datetime/datetime.zig"}}));
 
 	// setup executable
 	const exe = b.addExecutable(.{
