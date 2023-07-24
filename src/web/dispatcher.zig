@@ -43,7 +43,6 @@ pub const Dispatcher = struct {
 		var log_request = self.log_http;
 
 		self.doDispatch(action, req, res, &env) catch |err| switch (err) {
-			error.InvalidAuthorization => code = web.errors.InvalidAuthorization.write(res),
 			error.ExpiredSessionId => code = web.errors.ExpiredSessionId.write(res),
 			error.InvalidJson => code = web.errors.InvalidJson.write(res),
 			error.UserRequired => code = web.errors.AccessDenied.write(res),
@@ -107,7 +106,7 @@ fn loadUser(app: *App, optional_session_id: ?[]const u8) !?*cache.Entry(User) {
 	if (try app.session_cache.fetch(*App, session_id, loadUserFromSessionId, app, .{.ttl = 1800})) |entry| {
 		return entry;
 	}
-	return error.InvalidAuthorization;
+	return null;
 }
 
 fn loadUserFromSessionId(app: *App, session_id: []const u8) !?User {
