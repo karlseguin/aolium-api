@@ -3,8 +3,8 @@
 	.version = "0.0.0",
 	.dependencies = .{
 		.httpz = .{
-			.url = "https://github.com/karlseguin/http.zig/archive/8075e6e414e78fc1728094e39ea1a531b5cb8eb4.tar.gz",
-			.hash = "1220a436e7e2e498447d79057194e84c9f7158a8c796dbe721dbe14bb1de5f25c92f"
+			.url = "https://github.com/karlseguin/http.zig/archive/fb6fd8389553b1bb7c72a86c8c7ea7ff8b9539f4.tar.gz",
+			.hash = "12209e69c41c3cf35db4695e81036a457860398cff7acb683697271ea08a3c644d04"
 		},
 		.cache = .{
 			.url = "https://github.com/karlseguin/cache.zig/archive/36da37f99daa92b200bbfa41086499b21f3c6a20.tar.gz",
@@ -19,20 +19,20 @@
 			.hash = "1220f1ad58622244b3c3053248204c43b42c1d33aa5549d21e7c605b128057afaa91"
 		},
 		.typed = .{
-			.url = "https://github.com/karlseguin/typed.zig/archive/24393b4c7d28d46fde8736c2242a1cbb20a16b7c.tar.gz",
-			.hash = "122011fac345afa3066111f9398f189b2cb339260529c671d28f7aa0a13df455941f"
+			.url = "https://github.com/karlseguin/typed.zig/archive/dd8c4a8c4b5f8974fc587a667808e584c1619dc9.tar.gz",
+			.hash = "1220aa24bee20b556f19e4ab38f093978a5a2d7596e2d05c345947046d6441cb20b8"
 		},
 		.validate = .{
-			.url = "https://github.com/karlseguin/validate.zig/archive/edd2e549804c4686e218f3f9d50ab7342e15db19.tar.gz",
-			.hash = "1220e9f4ece4a83c36f27b1972b0f6470e43cba53c1bb768769c84b16e4220115897"
+			.url = "https://github.com/karlseguin/validate.zig/archive/b962c65303913461c64e1b7992606d5b85338b61.tar.gz",
+			.hash = "122048fa889deecb30ef6b02a8d7829fe65de0447cd90815b99aa53bf3505106f7f0"
 		},
 		.zqlite = .{
 			.url = "https://github.com/karlseguin/zqlite.zig/archive/347a7abd948649a164538963696fedf31297b707.tar.gz",
 			.hash = "1220674f94780f2d25be8d54a5b1aa7e1db3d1eac4f0a164e3ec9fd036223804462f"
 		},
 		.yazap = .{
-			.url = "https://github.com/PrajwalCH/yazap/archive/0039130d3fb995ad1fce8b8be2df25c23beba0f7.tar.gz",
-			.hash = "12204a340f0b6da027541245a3feacec00e29cd4e9cc4e666dec430e5cdadee033f4"
+			.url = "https://github.com/karlseguin/yazap/archive/7adb9e582da1a62211e674f2102fc1c9bae6efa7.tar.gz",
+			.hash = "1220d5aac495a8ea6232d38dea9985b60e1ad6b9fed89206b77f4e26d2a2240b6c11"
 		},
 	},
 }
