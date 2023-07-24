@@ -7,6 +7,9 @@ pub const is_test = @import("builtin").is_test;
 pub var version: []const u8 = @embedFile("version.txt");
 pub const MAX_USERNAME_LEN = 20;
 
+// +37 = /UUID
+pub const MAX_WEB_POST_URL = "https://www.aolium.com/".len + MAX_USERNAME_LEN + 37;
+
 pub const codes = struct {
 	pub const INTERNAL_SERVER_ERROR_UNCAUGHT = 0;
 	pub const INTERNAL_SERVER_ERROR_CAUGHT = 1;

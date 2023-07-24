@@ -114,6 +114,7 @@ const PostsFetcher = struct {
 	fn generateJSON(self: *const PostsFetcher, conn: zqlite.Conn, buf: *buffer.Buffer) !void {
 		const html = self.html;
 		const user = self.user;
+		const username = self.username;
 
 		const prefix = "{\"posts\":[\n";
 		try buf.write(prefix);
@@ -159,13 +160,18 @@ const PostsFetcher = struct {
 				defer text_value.deinit();
 
 				var id_buf: [36]u8 = undefined;
+				var url_buf: [aolium.MAX_WEB_POST_URL]u8 = undefined;
+
+				const id = uuid.toString(row.blob(0), &id_buf);
+
 				try std.json.stringify(.{
-					.id = uuid.toString(row.blob(0), &id_buf),
+					.id = id,
 					.type = tpe,
 					.title = row.nullableText(2),
 					.text = text_value.value(),
 					.created = row.int(4),
 					.updated = row.int(5),
+					.web_url = try std.fmt.bufPrint(&url_buf, "https://www.aolium.com/{s}/{s}", .{username, id}),
 				}, .{.emit_null_optional_fields = false}, writer);
 
 				try buf.write(",\n");
@@ -381,17 +387,20 @@ test "posts.index: json list" {
 					.type = "link",
 					.title = "t2",
 					.text = "https://www.aolium.com",
+					.web_url = try std.fmt.allocPrint(tc.arena, "https://www.aolium.com/index_post_list/{s}", .{p2}),
 				},
 				.{
 					.id = p3,
 					.type = "long",
 					.title = "t1",
-					.text = "<h3>c1</h3>\n<p>hi</p>\n"
+					.text = "<h3>c1</h3>\n<p>hi</p>\n",
+					.web_url = try std.fmt.allocPrint(tc.arena, "https://www.aolium.com/index_post_list/{s}", .{p3}),
 				},
 				.{
 					.id = p1,
 					.type = "simple",
 					.text = "<p>the spice must flow</p>\n",
+					.web_url = try std.fmt.allocPrint(tc.arena, "https://www.aolium.com/index_post_list/{s}", .{p1}),
 				}
 			}});
 		}
