@@ -43,7 +43,6 @@ pub const Dispatcher = struct {
 		var log_request = self.log_http;
 
 		self.doDispatch(action, req, res, &env) catch |err| switch (err) {
-			error.ExpiredSessionId => code = web.errors.ExpiredSessionId.write(res),
 			error.InvalidJson => code = web.errors.InvalidJson.write(res),
 			error.UserRequired => code = web.errors.AccessDenied.write(res),
 			error.Validation => {
@@ -126,7 +125,7 @@ fn loadUserFromSessionId(app: *App, session_id: []const u8) !?User {
 	defer row.deinit();
 
 	if (row.int(1) < std.time.timestamp()) {
-		return error.ExpiredSessionId;
+		return null;
 	}
 
 	return User.init(row.int(0), row.text(2));
@@ -208,7 +207,8 @@ test "dispatcher: load user" {
 
 	const user_id1 = tc.insert.user(.{});
 
-	var dispatcher = Dispatcher{.app = tc.app};
+	const dispatcher = Dispatcher{.app = tc.app};
+	const req_dispatcher = Dispatcher{.app = tc.app, .requires_user = true};
 
 	{
 		// no authorization header on public route, no problem
@@ -220,8 +220,7 @@ test "dispatcher: load user" {
 	{
 		tc.reset();
 		// no authorization header on non-public route,  problem
-		const d = Dispatcher{.app = tc.app, .requires_user = true};
-		try d.dispatch(testErrorAction, tc.web.req, tc.web.res);
+		try req_dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
 		try tc.web.expectStatus(401);
 		try tc.web.expectJson(.{.code = 8});
 	}
@@ -230,9 +229,9 @@ test "dispatcher: load user" {
 		// unknown token
 		tc.reset();
 		tc.web.header("authorization", "aolium abc12345558");
-		try dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
+		try req_dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
 		try tc.web.expectStatus(401);
-		try tc.web.expectJson(.{.code = 6});
+		try tc.web.expectJson(.{.code = 8});
 	}
 
 	{
@@ -240,9 +239,9 @@ test "dispatcher: load user" {
 		tc.reset();
 		const sid = tc.insert.session(.{.user_id = user_id1, .ttl = - 1});
 		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "aolium {s}", .{sid}));
-		try dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
+		try req_dispatcher.dispatch(testErrorAction, tc.web.req, tc.web.res);
 		try tc.web.expectStatus(401);
-		try tc.web.expectJson(.{.code = 7});
+		try tc.web.expectJson(.{.code = 8});
 	}
 
 	{
@@ -250,7 +249,7 @@ test "dispatcher: load user" {
 		tc.reset();
 		const sid = tc.insert.session(.{.user_id = user_id1, .ttl = 2});
 		tc.web.header("authorization", try std.fmt.allocPrint(tc.arena, "aolium {s}", .{sid}));
-		try dispatcher.dispatch(testEchoUser, tc.web.req, tc.web.res);
+		try req_dispatcher.dispatch(testEchoUser, tc.web.req, tc.web.res);
 		try tc.web.expectJson(.{.id = user_id1});
 	}
 }

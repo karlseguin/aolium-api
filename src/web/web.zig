@@ -178,7 +178,6 @@ pub const errors = struct {
 	pub const ServerError = Error.init(500, codes.INTERNAL_SERVER_ERROR_UNCAUGHT, "internal server error");
 	pub const RouterNotFound = Error.init(404, codes.ROUTER_NOT_FOUND, "not found");
 	pub const InvalidJson = Error.init(400, codes.INVALID_JSON, "invalid JSON");
-	pub const ExpiredSessionId = Error.init(401, codes.EXPIRED_SESSION_ID, "expired session id");
 	pub const AccessDenied = Error.init(401, codes.ACCESS_DENIED, "access denied");
 };
 
