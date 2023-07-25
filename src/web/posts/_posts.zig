@@ -46,7 +46,7 @@ pub fn init(builder: *validate.Builder(void)) !void {
 
 	long_validator = builder.object(&.{
 		builder.field("title", builder.string(.{.required = true, .max = 200, .trim = true})),
-		builder.field("text", builder.string(.{.required = true, .max = 5000, .trim = true})),
+		builder.field("text", builder.string(.{.required = true, .max = 10000, .trim = true})),
 	}, .{});
 }
 
