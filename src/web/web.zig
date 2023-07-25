@@ -63,6 +63,7 @@ pub fn start(app: *App) !void {
 			.requires_user = true,
 			.log_http = config.log_http,
 		}});
+		routes.head("/auth/check", auth.check);
 		routes.post("/posts", posts.create);
 		routes.post("/posts/:id", posts.update);
 	}
