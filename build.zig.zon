@@ -23,8 +23,8 @@
 			.hash = "1220aa24bee20b556f19e4ab38f093978a5a2d7596e2d05c345947046d6441cb20b8"
 		},
 		.validate = .{
-			.url = "https://github.com/karlseguin/validate.zig/archive/b962c65303913461c64e1b7992606d5b85338b61.tar.gz",
-			.hash = "122048fa889deecb30ef6b02a8d7829fe65de0447cd90815b99aa53bf3505106f7f0"
+			.url = "https://github.com/karlseguin/validate.zig/archive/c3aa13433e4db405ab8b79b826e874e786a902e5.tar.gz",
+			.hash = "12208487ef8f1771bc3b6af0bed4618b3dadac180a87dfec5765788b7259c6ba81d2"
 		},
 		.zqlite = .{
 			.url = "https://github.com/karlseguin/zqlite.zig/archive/347a7abd948649a164538963696fedf31297b707.tar.gz",
