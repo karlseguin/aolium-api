@@ -297,7 +297,7 @@ const Inserter = struct {
 		}
 
 		const sql =
-			\\ insert into posts (id, user_id, title, text, type,tags, created, updated)
+			\\ insert into posts (id, user_id, title, text, type, tags, created, updated)
 			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
 		;
 		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", tags, p.created, p.updated};
