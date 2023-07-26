@@ -25,6 +25,7 @@ pub fn build(b: *std.Build) !void {
 
 	// local libraries
 	try modules.put("uuid", b.addModule("uuid", .{.source_file = .{.path = "lib/uuid/uuid.zig"}}));
+	try modules.put("raw_json", b.addModule("raw_json", .{.source_file = .{.path = "lib/raw_json/raw_json.zig"}}));
 	try modules.put("markdown", b.addModule("markdown", .{.source_file = .{.path = "lib/markdown/markdown.zig"}}));
 	try modules.put("datetime", b.addModule("datetime", .{.source_file = .{.path = "lib/datetime/datetime.zig"}}));
 

@@ -3,6 +3,7 @@ const uuid = @import("uuid");
 const httpz = @import("httpz");
 const zqlite = @import("zqlite");
 const buffer = @import("buffer");
+const raw_json = @import("raw_json");
 const validate = @import("validate");
 const datetime = @import("datetime");
 const posts = @import("_posts.zig");
@@ -67,7 +68,6 @@ const PostsFetcher = struct {
 		cache_key[10] |= if (atom) 2 else 0;
 		cache_key[10] |= if (full) 4 else 0;
 
-
 		return .{
 			.env = env,
 			.user = user,
@@ -123,7 +123,7 @@ const PostsFetcher = struct {
 		const offset = (self.page - 1) * 20;
 
 		const sql =
-			\\ select id, type, title,
+			\\ select id, type, title, tags,
 			\\   case
 			\\     when ?3 or type != 'long' then text
 			\\     else null
@@ -156,7 +156,7 @@ const PostsFetcher = struct {
 			while (rows.next()) |row| {
 				const tpe = row.text(1);
 
-				const text_value = posts.maybeRenderHTML(html, tpe, row, 3);
+				const text_value = posts.maybeRenderHTML(html, tpe, row, 4);
 				defer text_value.deinit();
 
 				var id_buf: [36]u8 = undefined;
@@ -169,8 +169,9 @@ const PostsFetcher = struct {
 					.type = tpe,
 					.title = row.nullableText(2),
 					.text = text_value.value(),
-					.created = row.int(4),
-					.updated = row.int(5),
+					.tags = raw_json.init(row.nullableText(3)),
+					.created = row.int(5),
+					.updated = row.int(6),
 					.web_url = try std.fmt.bufPrint(&url_buf, "https://www.aolium.com/{s}/{s}", .{username, id}),
 				}, .{.emit_null_optional_fields = false}, writer);
 
@@ -341,7 +342,7 @@ test "posts.index: json list" {
 
 	const uid = tc.insert.user(.{.username = "index_post_list"});
 	const p1 = tc.insert.post(.{.user_id = uid, .created = 10, .type = "simple", .text = "the spice must flow"});
-	const p2 = tc.insert.post(.{.user_id = uid, .created = 15, .type = "link", .title = "t2", .text = "https://www.aolium.com"});
+	const p2 = tc.insert.post(.{.user_id = uid, .created = 15, .type = "link", .title = "t2", .text = "https://www.aolium.com", .tags = &.{"t2", "t3"}});
 	const p3 = tc.insert.post(.{.user_id = uid, .created = 12, .type = "long", .title = "t1", .text = "### c1\n\nhi\n\n"});
 	_ = tc.insert.post(.{.created = 10});
 
@@ -359,17 +360,20 @@ test "posts.index: json list" {
 					.id = p2,
 					.type = "link",
 					.title = "t2",
+					.tags = &.{"t2", "t3"},
 					.text = "https://www.aolium.com",
 				},
 				.{
 					.id = p3,
 					.type = "long",
 					.title = "t1",
+					.tags = null,
 					.text = "### c1\n\nhi\n\n"
 				},
 				.{
 					.id = p1,
 					.type = "simple",
+					.tags = null,
 					.text = "the spice must flow",
 				}
 			}});
@@ -387,6 +391,7 @@ test "posts.index: json list" {
 					.type = "link",
 					.title = "t2",
 					.text = "https://www.aolium.com",
+					.tags = &.{"t2", "t3"},
 					.web_url = try std.fmt.allocPrint(tc.arena, "https://www.aolium.com/index_post_list/{s}", .{p2}),
 				},
 				.{
@@ -394,11 +399,13 @@ test "posts.index: json list" {
 					.type = "long",
 					.title = "t1",
 					.text = "<h3>c1</h3>\n<p>hi</p>\n",
+					.tags = null,
 					.web_url = try std.fmt.allocPrint(tc.arena, "https://www.aolium.com/index_post_list/{s}", .{p3}),
 				},
 				.{
 					.id = p1,
 					.type = "simple",
+					.tags = null,
 					.text = "<p>the spice must flow</p>\n",
 					.web_url = try std.fmt.allocPrint(tc.arena, "https://www.aolium.com/index_post_list/{s}", .{p1}),
 				}

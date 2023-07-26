@@ -278,6 +278,7 @@ const Inserter = struct {
 		title: ?[]const u8 = null,
 		text: ?[]const u8 = null,
 		type: ?[]const u8 = null,
+		tags: ?[]const []const u8 = null,
 		created: i64 = 0,
 		updated: i64 = 0,
 	};
@@ -290,11 +291,16 @@ const Inserter = struct {
 		const arena = self.ctx.arena;
 		const id = &uuid.bin();
 
+		var tags: ?[]const u8 = null;
+		if (p.tags) |tgs| {
+			tags = std.json.stringifyAlloc(arena, tgs, .{}) catch unreachable;
+		}
+
 		const sql =
-			\\ insert into posts (id, user_id, title, text, type, created, updated)
-			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+			\\ insert into posts (id, user_id, title, text, type,tags, created, updated)
+			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
 		;
-		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", p.created, p.updated};
+		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", tags, p.created, p.updated};
 
 		const conn = app.getDataConn(0);
 		defer app.releaseDataConn(conn, 0);

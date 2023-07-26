@@ -2,6 +2,7 @@ const std = @import("std");
 const uuid = @import("uuid");
 const httpz = @import("httpz");
 const validate = @import("validate");
+const raw_json = @import("raw_json");
 const posts = @import("_posts.zig");
 
 const web = posts.web;
@@ -71,7 +72,7 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	const post_id = fetcher.post_id;
 
 	const sql =
-		\\ select type, title, text, created, updated
+		\\ select type, title, text, tags, created, updated
 		\\ from posts where id = ?1 and user_id = ?2
 	;
 	const args = .{&post_id, user.id};
@@ -107,8 +108,10 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 			.type = tpe,
 			.title = row.nullableText(1),
 			.text = text_value.value(),
-			.created = row.int(3),
-			.updated = row.int(4),
+			.tags = raw_json.init(row.nullableText(3)),
+			.created = row.int(4),
+			.updated = row.int(5),
+			.user_id = user.id,
 		}, .{.emit_null_optional_fields = false}, writer);
 	}
 
@@ -167,7 +170,7 @@ test "posts.show: show" {
 	defer tc.deinit();
 
 	const uid = tc.insert.user(.{.username = "index_post_show"});
-	const p1 = tc.insert.post(.{.user_id = uid, .type = "simple", .text = "the spice must flow"});
+	const p1 = tc.insert.post(.{.user_id = uid, .type = "simple", .text = "the spice must flow", .tags = &.	{"tag1", "tag2"}});
 	const p2 = tc.insert.post(.{.user_id = uid, .type = "link", .title = "t2", .text = "https://www.aolium.dev"});
 	const p3 = tc.insert.post(.{.user_id = uid, .type = "long", .title = "t1", .text = "### c1\n\nhi\n\n"});
 
@@ -179,7 +182,14 @@ test "posts.show: show" {
 			tc.web.query("username", "index_post_show");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
-			try tc.web.expectJson(.{.post = .{.id = p1, .type = "simple", .text = "the spice must flow"}});
+			try tc.web.expectJson(.{
+				.post = .{
+					.id = p1,
+					.type = "simple",
+					.text = "the spice must flow",
+					.tags = .{"tag1", "tag2"},
+				}
+			});
 		}
 
 		{
@@ -188,7 +198,14 @@ test "posts.show: show" {
 			tc.web.query("username", "index_post_show");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
-			try tc.web.expectJson(.{.post = .{.id = p2, .type = "link", .title = "t2", .text = "https://www.aolium.dev"}});
+			try tc.web.expectJson(.{
+				.post = .{
+					.id = p2,
+					.type = "link",
+					.title = "t2", .text = "https://www.aolium.dev",
+					.tags = null
+				}
+			});
 		}
 
 		{
@@ -197,7 +214,15 @@ test "posts.show: show" {
 			tc.web.query("username", "index_post_show");
 
 			try handler(tc.env(), tc.web.req, tc.web.res);
-			try tc.web.expectJson(.{.post = .{.id = p3, .type = "long", .title = "t1", .text = "### c1\n\nhi\n\n"}});
+			try tc.web.expectJson(.{
+				.post = .{
+					.id = p3,
+					.type = "long",
+					.title = "t1",
+					.tags = null,
+					.text = "### c1\n\nhi\n\n"
+				}
+			});
 		}
 
 		// Now with html=true
