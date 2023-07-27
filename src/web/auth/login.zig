@@ -69,7 +69,7 @@ pub fn createSession(env: *aolium.Env, conn: zqlite.Conn, user_data: anytype, re
 
 	{
 		// create the session
-		const session_sql = "insert into sessions (id, user_id, expires) values (?1, ?2, unixepoch() + 86400)";
+		const session_sql = "insert into sessions (id, user_id, expires) values (?1, ?2, unixepoch() + 2592000)";
 		conn.exec(session_sql,.{&session_id, user_id}) catch |err| {
 			return aolium.sqliteErr("sessions.insert", err, conn, env.logger);
 		};
