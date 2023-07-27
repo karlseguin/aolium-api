@@ -23,6 +23,7 @@ char *markdown_to_html(const char *text, size_t len) {
 	cmark_node *node = cmark_parser_finish(parser);
 
 	char *html = cmark_render_html(node, CMARK_OPT_STRIKETHROUGH_DOUBLE_TILDE, cmark_parser_get_syntax_extensions(parser));
+	cmark_node_free(node);
 	cmark_parser_free(parser);
 	return html;
 }

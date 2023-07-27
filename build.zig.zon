@@ -31,8 +31,8 @@
 			.hash = "1220674f94780f2d25be8d54a5b1aa7e1db3d1eac4f0a164e3ec9fd036223804462f"
 		},
 		.yazap = .{
-			.url = "https://github.com/PrajwalCH/yazap/archive/fff27cded5071596664a90438d0a7fa20de1e379.tar.gz",
-			.hash = "12209df8494e7d9fccd1bc32842a47e0f0654d01c0bd294a2987df7465339d13065f"
+			.url = "https://github.com/karlseguin/yazap/archive/3accd39eedaff0486d415de6608ebef10bf622eb.tar.gz",
+			.hash = "1220641c0e96a8352c5014b45b1a849102bf25c20e69e10d9e6babaf0bc321258ef8"
 		},
 	},
 }
