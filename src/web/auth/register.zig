@@ -297,7 +297,7 @@ test "auth.register: success no email and no spam fields" {
 	{
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
 		try t.expectEqual(user_id, row.get(i64, "user_id").?);
-		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
+		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get(i64, "expires").?, 5);
 	}
 }
 

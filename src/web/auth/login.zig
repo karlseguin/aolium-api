@@ -174,7 +174,7 @@ test "auth.login" {
 
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
 		try t.expectEqual(user_id1, row.get(i64, "user_id").?);
-		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
+		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get(i64, "expires").?, 5);
 	}
 
 	{
@@ -190,6 +190,6 @@ test "auth.login" {
 
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
 		try t.expectEqual(user_id2, row.get(i64, "user_id").?);
-		try t.expectDelta(std.time.timestamp() + 86_400, row.get(i64, "expires").?, 5);
+		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get(i64, "expires").?, 5);
 	}
 }
