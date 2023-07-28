@@ -13,6 +13,7 @@ const Dispatcher = @import("dispatcher.zig").Dispatcher;
 
 // handlers
 const auth = @import("auth/_auth.zig");
+const misc = @import("misc/_misc.zig");
 const posts = @import("posts/_posts.zig");
 
 pub fn start(app: *App) !void {
@@ -41,6 +42,7 @@ pub fn start(app: *App) !void {
 		routes.post("/auth/register", auth.register);
 		routes.get("/posts", posts.index);
 		routes.get("/posts/:id", posts.show);
+		routes.get("/ping", misc.ping);
 	}
 
 	{
