@@ -25,7 +25,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 }
 
 pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
-	const input = try web.validateQuery(req, &[_][]const u8{"username", "html", "atom", "full"}, index_validator, env);
+	const input = try web.validateQuery(req, &[_][]const u8{"username", "html", "atom", "full", "page"}, index_validator, env);
 
 	const app = env.app;
 	const username = input.get([]u8, "username").?;
@@ -131,11 +131,11 @@ const PostsFetcher = struct {
 			\\   created, updated
 			\\ from posts
 			\\ where user_id = ?1
-			\\ order by created desc
-			\\ limit 20 offset ?2
+			\\ order by created desc, rowid
+			\\ limit 21 offset ?2
 		;
+		var more = false;
 		const args = .{user.id, offset, self.full};
-
 		{
 			var rows = conn.rows(sql, args) catch |err| {
 				return aolium.sqliteErr("posts.select.json", err, conn, self.env.logger);
@@ -153,6 +153,7 @@ const PostsFetcher = struct {
 
 			// TODO: can/should heavily optimzie this, namely by storing pre-generated
 			// json and html blobs that we just glue together.
+			var count: usize = 0;
 			while (rows.next()) |row| {
 				const tpe = row.text(1);
 
@@ -176,6 +177,11 @@ const PostsFetcher = struct {
 				}, .{.emit_null_optional_fields = false}, writer);
 
 				try buf.write(",\n");
+				count += 1;
+				if (count == 20) {
+					more = rows.next() != null;
+					break;
+				}
 			}
 		}
 
@@ -183,7 +189,8 @@ const PostsFetcher = struct {
 		if (buf.len() > prefix.len) {
 			buf.truncate(2);
 		}
-		try buf.write("\n]}");
+		try buf.write("],\n\"more\":");
+		try buf.write(if (more) "true}" else "false}");
 	}
 
 	fn generateAtom(self: *const PostsFetcher, conn: zqlite.Conn , buf: *buffer.Buffer) !void {
