@@ -15,6 +15,7 @@ const Dispatcher = @import("dispatcher.zig").Dispatcher;
 const auth = @import("auth/_auth.zig");
 const misc = @import("misc/_misc.zig");
 const posts = @import("posts/_posts.zig");
+const comments = @import("comments/_comments.zig");
 
 pub fn start(app: *App) !void {
 	const config = app.config;
@@ -42,6 +43,7 @@ pub fn start(app: *App) !void {
 		routes.post("/auth/register", auth.register);
 		routes.get("/posts", posts.index);
 		routes.get("/posts/:id", posts.show);
+		routes.post("/posts/:id/comments", comments.create);
 		routes.get("/ping", misc.ping);
 	}
 
@@ -68,6 +70,10 @@ pub fn start(app: *App) !void {
 		routes.head("/auth/check", auth.check);
 		routes.post("/posts", posts.create);
 		routes.post("/posts/:id", posts.update);
+		routes.post("/posts/:id", posts.update);
+		routes.get("/comments/:id/delete", comments.delete);
+		routes.get("/comments/:id/approve", comments.approve);
+		routes.get("/comments", comments.index);
 	}
 
 	var http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});

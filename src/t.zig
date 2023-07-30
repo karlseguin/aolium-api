@@ -29,6 +29,7 @@ pub fn expectDelta(expected: anytype, actual: @TypeOf(expected), delta: @TypeOf(
 	try expectEqual(true, expected + delta >= actual);
 }
 pub const expectError = std.testing.expectError;
+pub const expectSlice = std.testing.expectEqualSlices;
 pub const expectString = std.testing.expectEqualStrings;
 
 // We will _very_ rarely use this. Zig test doesn't have test lifecycle hooks. We
@@ -119,9 +120,11 @@ pub const Context = struct {
 	}
 
 	pub fn user(self: *Context, config: anytype) void {
+		const T = @TypeOf(config);
 		self._user = User{
 			.id = config.id,
 			.shard_id = 0,
+			.username = if (@hasField(T, "username")) config.username else "",
 		};
 	}
 
@@ -279,6 +282,7 @@ const Inserter = struct {
 		text: ?[]const u8 = null,
 		type: ?[]const u8 = null,
 		tags: ?[]const []const u8 = null,
+		comments: i64 = 0,
 		created: i64 = 0,
 		updated: i64 = 0,
 	};
@@ -297,16 +301,53 @@ const Inserter = struct {
 		}
 
 		const sql =
-			\\ insert into posts (id, user_id, title, text, type, tags, created, updated)
-			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+			\\ insert into posts (id, user_id, title, text, type, tags, comments, created, updated)
+			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
 		;
-		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", tags, p.created, p.updated};
+		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", tags, p.comments, p.created, p.updated};
 
 		const conn = app.getDataConn(0);
 		defer app.releaseDataConn(conn, 0);
 
 		conn.exec(sql, args) catch {
 			std.debug.print("inserter.posts: {s}", .{conn.lastError()});
+			unreachable;
+		};
+
+		const string_id = arena.alloc(u8, 36) catch unreachable;
+		return uuid.toString(id, string_id);
+	}
+
+	const CommentParams = struct {
+		user_id: ?i64 = null,
+		post_id: ?[]const u8 = null,
+		comment: ?[]const u8 = null,
+		name: ?[]const u8 = null,
+		created: i64 = 0,
+		approved: ?i64 = 0,
+	};
+
+	pub fn comment(self: Inserter, p: CommentParams) []const u8 {
+		var app = self.ctx.app;
+
+		const user_id = p.user_id;
+
+		const arena = self.ctx.arena;
+		const id = &uuid.bin();
+
+		const post_id = if (p.post_id) |pid| uuid.parse(pid) catch unreachable else uuid.bin();
+
+		const sql =
+			\\ insert into comments (id, post_id, user_id, name, comment, created, approved)
+			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+		;
+		const args = .{id, &post_id, user_id, p.name orelse "", p.comment orelse "", p.created, p.approved};
+
+		const conn = app.getDataConn(0);
+		defer app.releaseDataConn(conn, 0);
+
+		conn.exec(sql, args) catch {
+			std.debug.print("inserter.comments: {s}", .{conn.lastError()});
 			unreachable;
 		};
 

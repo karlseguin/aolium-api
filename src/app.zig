@@ -200,7 +200,7 @@ pub const App = struct {
 
 		defer row.deinit();
 
-		return User.init(row.int(0), row.text(1));
+		return try User.init(self.user_cache.allocator, row.int(0), row.text(1));
 	}
 };
 

@@ -75,8 +75,9 @@ pub fn createSession(env: *aolium.Env, conn: zqlite.Conn, user_data: anytype, re
 		};
 	}
 
-	const user = User.init(user_id, user_data.username);
-	try env.app.session_cache.put(&session_id, user, .{.ttl = 1800});
+	var session_cache = env.app.session_cache;
+	const user = try User.init(session_cache.allocator, user_id, user_data.username);
+	try session_cache.put(&session_id, user, .{.ttl = 1800});
 
 	return res.json(.{
 		.user = .{

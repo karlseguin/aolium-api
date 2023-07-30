@@ -128,7 +128,7 @@ fn loadUserFromSessionId(app: *App, session_id: []const u8) !?User {
 		return null;
 	}
 
-	return User.init(row.int(0), row.text(2));
+	return try User.init(app.session_cache.allocator, row.int(0), row.text(2));
 }
 
 fn encodeRequestId(instance_id: u8, rid: u32) [8]u8 {
