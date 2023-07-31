@@ -7,7 +7,7 @@ pub const Raw = struct {
 
 	pub fn jsonStringify(self: Raw, out: anytype) !void {
 		const json = if (self.value) |value| value else "null";
-		return out.writePreformatted(json);
+		return out.print("{s}", .{json});
 	}
 };
 
