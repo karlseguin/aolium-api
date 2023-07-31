@@ -178,11 +178,11 @@ pub const App = struct {
 		};
 	}
 
-	pub fn clearPostCache(self: *App, post_id: [16]u8) void {
+	pub fn clearPostCache(self: *App, post_id: []const u8) void {
 		// TODO: delPrefix tries to minize write locks, but it's still an O(N) on the
 		// cache, this has to switch to be switched to layered cache at some point.
-		_ = self.http_cache.delPrefix(&post_id) catch |err| {
-			logz.err().ctx("app.clearPostCache").err(err).binary("post_id", &post_id).log();
+		_ = self.http_cache.delPrefix(post_id) catch |err| {
+			logz.err().ctx("app.clearPostCache").err(err).binary("post_id", post_id).log();
 		};
 	}
 

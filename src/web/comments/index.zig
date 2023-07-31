@@ -24,13 +24,13 @@ pub fn handler(env: *aolium.Env, _: *httpz.Request, res: *httpz.Response) !void 
 		defer app.releaseDataConn(conn, shard_id);
 
 		const sql =
-			\\ select c.id, c.name, c.comments, c.post_id
+			\\ select c.id, c.name, c.comment, c.post_id, coalesce(p.title, substr(p.text, 0, 100)), c.created
 			\\ from comments c
 			\\   join posts p on c.post_id = p.id
 			\\ where p.user_id = ?1
 			\\   and c.approved is null
 			\\ order by c.created desc
-			\\ limi 20
+			\\ limit 20
 		;
 		var rows = conn.rows(sql, .{user.id}) catch |err| {
 			return aolium.sqliteErr("comments.select", err, conn, env.logger);
@@ -45,7 +45,9 @@ pub fn handler(env: *aolium.Env, _: *httpz.Request, res: *httpz.Response) !void 
 				.id = uuid.toString(row.blob(0), &id_buf),
 				.name = row.nullableText(1),
 				.comment = row.text(2),
-				.post_id = uuid.toString(row.blob(3), &post_id_buf)
+				.post_id = uuid.toString(row.blob(3), &post_id_buf),
+				.post = row.text(4),
+				.created = row.int(5),
 			}, .{.emit_null_optional_fields = false}, writer);
 
 			try sb.write(",\n");

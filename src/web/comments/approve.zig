@@ -38,6 +38,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		conn.exec("update posts set comments = comments + 1 where id = ?1", .{post_id}) catch |err| {
 			return aolium.sqliteErr("comments.approve.update", err, conn, env.logger);
 		};
+		app.clearPostCache(post_id);
 	}
 	res.status = 204;
 }

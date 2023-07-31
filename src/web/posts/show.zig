@@ -126,6 +126,7 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 				const sql =
 					\\ select id, name, comment, created
 					\\ from comments where post_id = ?1 and approved is not null
+					\\ order by created
 				;
 				var rows = conn.rows(sql, .{&post_id}) catch |err| {
 					return aolium.sqliteErr("posts.get.comments", err, conn, env.logger);

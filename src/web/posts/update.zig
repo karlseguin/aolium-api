@@ -39,7 +39,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	}
 
 	app.clearUserCache(user.id);
-	app.clearPostCache(post_id);
+	app.clearPostCache(&post_id);
 	res.status = 204;
 }
 
