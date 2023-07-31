@@ -45,6 +45,7 @@ pub fn start(app: *App) !void {
 		routes.get("/posts/:id", posts.show);
 		routes.post("/posts/:id/comments", comments.create);
 		routes.get("/ping", misc.ping);
+		routes.get("/comments/count", comments.count);
 	}
 
 	{
