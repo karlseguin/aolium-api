@@ -11,14 +11,6 @@ pub fn main() !void {
 	var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 	const allocator = gpa.allocator();
 
-	var config_file: ?[]const u8 = null;
-	var it = try std.process.argsWithAllocator(allocator);
-	_ = it.next(); // skip executable
-	if (it.next()) |arg| {
-		config_file = arg;
-	}
-	it.deinit();
-
 	// Some data exists for the entire lifetime of the project. We could just
 	// use the gpa allocator, but if we don't properly clean it up, it'll cause
 	// tests to report leaks.
