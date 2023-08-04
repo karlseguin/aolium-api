@@ -3,8 +3,8 @@
 	.version = "0.0.0",
 	.dependencies = .{
 		.httpz = .{
-			.url = "https://github.com/karlseguin/http.zig/archive/8ba317b14dbe64af81a3c6fcc9b5da799cb5a3e7.tar.gz",
-			.hash = "1220acf589a63430b28bdb796f5b923b8ad031fdd30291ec3f151b0982e1909be3e5"
+			.url = "https://github.com/karlseguin/http.zig/archive/5c3c7c579fe816e7e86d3c3771ec68e7505ead8a.tar.gz",
+			.hash = "122060728281e6ce2939b74b512aad9d9d268d65e084939526b4588295221696184e"
 		},
 		.cache = .{
 			.url = "https://github.com/karlseguin/cache.zig/archive/36da37f99daa92b200bbfa41086499b21f3c6a20.tar.gz",
@@ -15,8 +15,8 @@
 			.hash = "12209ec084e1d51fa8fd29104a89d1bcbefd6864b6d02be5caff1cddda62a8405a08"
 		},
 		.buffer = .{
-			.url = "https://github.com/karlseguin/buffer.zig/archive/edc08a912d1bb46da9506caa6eab8ca6bd3482c0.tar.gz",
-			.hash = "1220f1ad58622244b3c3053248204c43b42c1d33aa5549d21e7c605b128057afaa91"
+			.url = "https://github.com/karlseguin/buffer.zig/archive/582079043f4ae8f94a6fd4e45ac0594fc685dfb8.tar.gz",
+			.hash = "1220d809a4a19de7731c84a3899063166492b4712da55821679ee05b245832f380da"
 		},
 		.typed = .{
 			.url = "https://github.com/karlseguin/typed.zig/archive/99e6d46c0753025ae9fab15df344b52043d22986.tar.gz",
@@ -27,12 +27,12 @@
 			.hash = "1220f314cde5291fa76da7a44aab7a0981d0aa6f66aaf8449860eea39fdf3f2269ad"
 		},
 		.zqlite = .{
-			.url = "https://github.com/karlseguin/zqlite.zig/archive/347a7abd948649a164538963696fedf31297b707.tar.gz",
-			.hash = "1220674f94780f2d25be8d54a5b1aa7e1db3d1eac4f0a164e3ec9fd036223804462f"
+			.url = "https://github.com/karlseguin/zqlite.zig/archive/63e2e3bc29877ed6a72e819e74145cedf5066e14.tar.gz",
+			.hash = "12203130c2bbbed066ea396483a95f0fb7980e7fdee77c03abebda1d5b1796fd7f8b"
 		},
 		.yazap = .{
-			.url = "https://github.com/karlseguin/yazap/archive/3accd39eedaff0486d415de6608ebef10bf622eb.tar.gz",
-			.hash = "1220641c0e96a8352c5014b45b1a849102bf25c20e69e10d9e6babaf0bc321258ef8"
+			.url = "https://github.com/karlseguin/yazap/archive/c7ca7189efaa29f5679dc2a95b6360860f0294e9.tar.gz",
+			.hash = "12205dc65ca80407b1cdcafc1fbc6f4297bfd99f2fb6c8536551c84811607a5b8cb6"
 		},
 	},
 }

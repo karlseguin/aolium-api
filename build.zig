@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const LazyPath = std.Build.LazyPath;
+
 const ModuleMap = std.StringArrayHashMap(*std.Build.Module);
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
@@ -71,30 +73,33 @@ fn addLibs(step: *std.Build.CompileStep, modules: ModuleMap) !void {
 
 	step.linkLibC();
 
-	step.addRPath("lib/markdown");
-	step.addLibraryPath("lib/markdown");
-	step.addIncludePath("lib/markdown");
+	step.addRPath(LazyPath.relative("lib/markdown"));
+	step.addLibraryPath(LazyPath.relative("lib/markdown"));
+	step.addIncludePath(LazyPath.relative("lib/markdown"));
 	step.linkSystemLibrary("cmark-gfm");
 	step.linkSystemLibrary("cmark-gfm-extensions");
 
-	step.addCSourceFile("lib/sqlite3/sqlite3.c", &[_][]const u8{
-		"-DSQLITE_DQS=0",
-		"-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1",
-		"-DSQLITE_USE_ALLOCA=1",
-		"-DSQLITE_THREADSAFE=1",
-		"-DSQLITE_TEMP_STORE=3",
-		"-DSQLITE_ENABLE_API_ARMOR=1",
-		"-DSQLITE_ENABLE_UNLOCK_NOTIFY",
-		"-DSQLITE_ENABLE_UPDATE_DELETE_LIMIT=1",
-		"-DSQLITE_DEFAULT_FILE_PERMISSIONS=0600",
-		"-DSQLITE_OMIT_DECLTYPE=1",
-		"-DSQLITE_OMIT_DEPRECATED=1",
-		"-DSQLITE_OMIT_LOAD_EXTENSION=1",
-		"-DSQLITE_OMIT_PROGRESS_CALLBACK=1",
-		"-DSQLITE_OMIT_SHARED_CACHE",
-		"-DSQLITE_OMIT_TRACE=1",
-		"-DSQLITE_OMIT_UTF16=1",
-		"-DHAVE_USLEEP=1",
+	step.addCSourceFile(.{
+		.file = LazyPath.relative("lib/sqlite3/sqlite3.c"),
+		.flags = &[_][]const u8{
+			"-DSQLITE_DQS=0",
+			"-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1",
+			"-DSQLITE_USE_ALLOCA=1",
+			"-DSQLITE_THREADSAFE=1",
+			"-DSQLITE_TEMP_STORE=3",
+			"-DSQLITE_ENABLE_API_ARMOR=1",
+			"-DSQLITE_ENABLE_UNLOCK_NOTIFY",
+			"-DSQLITE_ENABLE_UPDATE_DELETE_LIMIT=1",
+			"-DSQLITE_DEFAULT_FILE_PERMISSIONS=0600",
+			"-DSQLITE_OMIT_DECLTYPE=1",
+			"-DSQLITE_OMIT_DEPRECATED=1",
+			"-DSQLITE_OMIT_LOAD_EXTENSION=1",
+			"-DSQLITE_OMIT_PROGRESS_CALLBACK=1",
+			"-DSQLITE_OMIT_SHARED_CACHE",
+			"-DSQLITE_OMIT_TRACE=1",
+			"-DSQLITE_OMIT_UTF16=1",
+			"-DHAVE_USLEEP=1",
+		},
 	});
-	step.addIncludePath("lib/sqlite3/");
+	step.addIncludePath(LazyPath.relative("lib/sqlite3/"));
 }
