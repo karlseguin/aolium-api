@@ -14,3 +14,8 @@ pub fn init(aa: std.mem.Allocator) !void {
 	try @import("web/posts/_posts.zig").init(builder);
 	try @import("web/comments/_comments.zig").init(builder);
 }
+
+
+pub fn deinit() void {
+	markdown.deinit();
+}

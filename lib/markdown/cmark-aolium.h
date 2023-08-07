@@ -1,6 +1,7 @@
 #include "cmark-gfm.h"
 #include "cmark-gfm-extension_api.h"
 
+extern void cmark_release_plugins();
 extern void cmark_gfm_core_extensions_ensure_registered();
 cmark_syntax_extension *table;
 cmark_syntax_extension *autolink;
@@ -11,6 +12,10 @@ void init() {
 	table = cmark_find_syntax_extension("table");
 	autolink = cmark_find_syntax_extension("autolink");
 	strikethrough = cmark_find_syntax_extension("strikethrough");
+}
+
+void deinit() {
+	cmark_release_plugins();
 }
 
 char *markdown_to_html(const char *text, size_t len) {

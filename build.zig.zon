@@ -11,8 +11,8 @@
 			.hash = "1220054c61a74eb0fbca65cea2619b6d2df99cb575f265c74d4c7a034092994a1941"
 		},
 		.logz = .{
-			.url = "https://github.com/karlseguin/log.zig/archive/d063bbf6a3e4114b8825c4e6ddcbdfebdaca545c.tar.gz",
-			.hash = "12209ec084e1d51fa8fd29104a89d1bcbefd6864b6d02be5caff1cddda62a8405a08"
+			.url = "https://github.com/karlseguin/log.zig/archive/93f974b57fbbe6930e09510dd59f4e1c8176264e.tar.gz",
+			.hash = "1220786d937aa07fa53deb2d3e8ab965b124cbc98ddd3d062a78861f700f06c5156b"
 		},
 		.buffer = .{
 			.url = "https://github.com/karlseguin/buffer.zig/archive/a88b6040f6dbf527416cd29d20b2d5e2e108f197.tar.gz",

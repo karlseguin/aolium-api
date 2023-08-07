@@ -20,7 +20,10 @@ pub fn main() !void {
 
 	const config = try parseArgs(aa);
 	try logz.setup(allocator, config.logger);
+	defer logz.deinit();
+
 	try @import("init.zig").init(aa);
+	defer @import("init.zig").deinit();
 
 	logz.info().ctx("init").
 		string("db_root", config.root).
@@ -29,6 +32,7 @@ pub fn main() !void {
 		log();
 
 	var app = try App.init(allocator, config);
+	defer app.deinit();
 	try @import("web/web.zig").start(&app);
 }
 

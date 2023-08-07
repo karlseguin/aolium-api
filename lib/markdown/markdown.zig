@@ -5,6 +5,10 @@ pub fn init() void {
 	c.init();
 }
 
+pub fn deinit() void {
+	c.deinit();
+}
+
 pub fn toHTML(input: [*:0]const u8, len: usize) Result {
 	return .{
 		.value = c.markdown_to_html(input, len),

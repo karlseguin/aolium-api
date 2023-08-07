@@ -20,6 +20,7 @@ pub const codes = struct {
 	pub const INVALID_AUTHORIZATION = 6;
 	pub const EXPIRED_SESSION_ID = 7;
 	pub const ACCESS_DENIED = 8;
+	pub const CONNECTION_RESET = 9;
 };
 
 pub const val = struct {

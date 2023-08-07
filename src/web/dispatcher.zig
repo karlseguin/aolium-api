@@ -43,6 +43,7 @@ pub const Dispatcher = struct {
 		var log_request = self.log_http;
 
 		self.doDispatch(action, req, res, &env) catch |err| switch (err) {
+			error.BrokenPipe, error.ConnectionResetByPeer => code = aolium.codes.CONNECTION_RESET,
 			error.InvalidJson => code = web.errors.InvalidJson.write(res),
 			error.UserRequired => code = web.errors.AccessDenied.write(res),
 			error.Validation => {

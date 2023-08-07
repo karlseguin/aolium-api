@@ -17,7 +17,12 @@ pub fn build(b: *std.Build) !void {
 	const dep_opts = .{.target = target,.optimize = optimize};
 
 	try modules.put("logz", b.dependency("logz", dep_opts).module("logz"));
+
 	try modules.put("httpz", b.dependency("httpz", dep_opts).module("httpz"));
+	// try modules.put("httpz", b.addModule("httpz", .{
+	// 	.source_file = .{.path = "lib/http.zig/src/httpz.zig"}
+	// }));
+
 	try modules.put("cache", b.dependency("cache", dep_opts).module("cache"));
 	try modules.put("buffer", b.dependency("buffer", dep_opts).module("buffer"));
 	try modules.put("typed", b.dependency("typed", dep_opts).module("typed"));

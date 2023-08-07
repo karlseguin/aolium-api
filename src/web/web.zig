@@ -82,6 +82,7 @@ pub fn start(app: *App) !void {
 	allocator.free(http_address);
 
 	// blocks
+	defer server.deinit();
 	try server.listen();
 }
 
