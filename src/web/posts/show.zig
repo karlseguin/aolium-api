@@ -143,7 +143,7 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 
 					try std.json.stringify(.{
 						.id = id,
-						.username = row.text(1),
+						.name = row.text(1),
 						.created = row.int(3),
 						.comment = comment_value.value(),
 					}, .{.emit_null_optional_fields = false}, writer);
