@@ -3,6 +3,7 @@ const uuid = @import("uuid");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const comments = @import("_comments.zig");
+const posts = @import("../posts/_posts.zig");
 
 const web = comments.web;
 const aolium = web.aolium;
@@ -41,10 +42,13 @@ pub fn handler(env: *aolium.Env, _: *httpz.Request, res: *httpz.Response) !void 
 			var id_buf: [36]u8 = undefined;
 			var post_id_buf: [36]u8 = undefined;
 
+			const comment_value = posts.maybeRenderHTML(true, "comment", row, 2);
+			defer comment_value.deinit();
+
 			try std.json.stringify(.{
 				.id = uuid.toString(row.blob(0), &id_buf),
 				.name = row.nullableText(1),
-				.comment = row.text(2),
+				.comment = comment_value.value(),
 				.post_id = uuid.toString(row.blob(3), &post_id_buf),
 				.post = row.text(4),
 				.created = row.int(5),

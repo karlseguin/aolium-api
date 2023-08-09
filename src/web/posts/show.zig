@@ -137,11 +137,15 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 				while (rows.next()) |row| {
 					var id_buf: [36]u8 = undefined;
 					const id = uuid.toString(row.blob(0), &id_buf);
+
+					const comment_value = posts.maybeRenderHTML(html, "comment", row, 2);
+					defer comment_value.deinit();
+
 					try std.json.stringify(.{
 						.id = id,
 						.username = row.text(1),
-						.comment = row.text(2),
 						.created = row.int(3),
+						.comment = comment_value.value(),
 					}, .{.emit_null_optional_fields = false}, writer);
 
 					try sb.write(",\n");
