@@ -118,7 +118,7 @@ const PostsFetcher = struct {
 
 		const prefix = "{\"posts\":[\n";
 		try buf.write(prefix);
-		var writer = buf.writer();
+		const writer = buf.writer();
 
 		const offset = (self.page - 1) * 20;
 
@@ -284,7 +284,7 @@ const PostsFetcher = struct {
 		// don't pass a type, we want to render html even for a link
 		const content = posts.maybeRenderHTML(html, "", row, 2);
 		defer content.deinit();
-		var content_value = std.mem.trim(u8, content.value().?, &std.ascii.whitespace);
+		const content_value = std.mem.trim(u8, content.value().?, &std.ascii.whitespace);
 
 		try writeEscapeXML(buf, content_value, html);
 		try buf.write("</content>\n\t</entry>\n");

@@ -77,7 +77,7 @@ pub fn start(app: *App) !void {
 		routes.get("/comments", comments.index);
 	}
 
-	var http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});
+	const http_address = try std.fmt.allocPrint(allocator, "http://{s}:{d}", .{config.address, config.port});
 	logz.info().ctx("http").string("address", http_address).log();
 	allocator.free(http_address);
 

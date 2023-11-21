@@ -211,7 +211,7 @@ fn compareString(_: void, key: []const u8, value: []const u8) std.math.Order {
 	}
 
 	for (key_compare, value_compare) |k, v| {
-		var order = std.math.order(std.ascii.toLower(k), v);
+		const order = std.math.order(std.ascii.toLower(k), v);
 		if (order != .eq) {
 			return order;
 		}

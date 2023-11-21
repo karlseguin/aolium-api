@@ -21,7 +21,7 @@ pub fn hex() [36]u8 {
 }
 
 pub fn allocHex(allocator: Allocator) ![]u8 {
-	var buf = try allocator.alloc(u8, 36);
+	const buf = try allocator.alloc(u8, 36);
 	return toString(&bin(), buf);
 }
 

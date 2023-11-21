@@ -82,7 +82,7 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 
 	const prefix = "{\"post\":\n";
 	try sb.write(prefix);
-	var writer = sb.writer();
+	const writer = sb.writer();
 
 	{
 		// this block exists so that conn is released ASAP

@@ -16,7 +16,7 @@ pub fn handler(env: *aolium.Env, _: *httpz.Request, res: *httpz.Response) !void 
 
 	const prefix = "{\"comments\": [";
 	try sb.write(prefix);
-	var writer = sb.writer();
+	const writer = sb.writer();
 
 	{
 		const user = env.user.?;

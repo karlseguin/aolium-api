@@ -1,38 +1,39 @@
 .{
 	.name = "aolium",
+	.paths = .{""},
 	.version = "0.0.0",
 	.dependencies = .{
 		.httpz = .{
-			.url = "https://github.com/karlseguin/http.zig/archive/691280f57c685c4ecc23c897fdb6a184d1051bb3.tar.gz",
-			.hash = "12209ab0456a3269bc04878d13137571f79411d945df9a7d71af75d968aa52fceef1"
+			.url = "https://github.com/karlseguin/http.zig/archive/551a41aaf2ef1a409987a3650d19f077aebffb02.tar.gz",
+			.hash = "12207ce3b3a484a8a4abaf6ad7660005c60c7744e974074df0f4c6d97f4be989236a"
 		},
 		.cache = .{
 			.url = "https://github.com/karlseguin/cache.zig/archive/821fe29e9bdaba36118151f52feea257d69c9e52.tar.gz",
 			.hash = "122024104bb9408092ac7cdbba80edb697102ac9a6a8cd3fcf9ddecacb6d5ab14963"
 		},
 		.logz = .{
-			.url = "https://github.com/karlseguin/log.zig/archive/93f974b57fbbe6930e09510dd59f4e1c8176264e.tar.gz",
-			.hash = "1220786d937aa07fa53deb2d3e8ab965b124cbc98ddd3d062a78861f700f06c5156b"
+			.url = "https://github.com/karlseguin/log.zig/archive/a971ae6323db7c824704b8ae244380c1b95a2ee1.tar.gz",
+			.hash = "12209b976eba7eed5cb147ea6b4d0195fdb97aee069f50309526370ddf5577f9c1fc"
 		},
 		.buffer = .{
-			.url = "https://github.com/karlseguin/buffer.zig/archive/a88b6040f6dbf527416cd29d20b2d5e2e108f197.tar.gz",
-			.hash = "1220d0e51185a52e96d8aad03cbf2f50313077b44036e6916c0832c80724c4e4ccd6"
+			.url = "https://github.com/karlseguin/buffer.zig/archive/56e4931270e28dba7a250484bf1994a6a45ae167.tar.gz",
+			.hash = "1220da1ce16a9dbc4cb246e0d62988736c3891b9320fa9c98e358e06128561f02a1f"
 		},
 		.typed = .{
-			.url = "https://github.com/karlseguin/typed.zig/archive/7254b2332c3f35fd1b17c60ab945078a446cf590.tar.gz",
-			.hash = "1220b7211063f0828f3aafab28b649f28a971e334d3e196598844ec966d4fb7301a8"
+			.url = "https://github.com/karlseguin/typed.zig/archive/74afcae0893b930032fae0c013df28944ad048a0.tar.gz",
+			.hash = "12201f28c1f797fe1a83049072c76f79d124eb27075749b50bac25e077405269e936"
 		},
 		.validate = .{
-			.url = "https://github.com/karlseguin/validate.zig/archive/dd9978dbda195a3966ddf41edf3924d048d54a4b.tar.gz",
-			.hash = "1220f9e47b773a182d88f41e9af79cabd13e5338881c5ab66759cb5f174ac5591dc6"
+			.url = "https://github.com/karlseguin/validate.zig/archive/2fbe6a4606a1264b5c9689cb6d2d983bf72ed171.tar.gz",
+			.hash = "1220e38cb0ebe70864b95b0fdafe0152e16acef9de2899aa21303f7c1a7b99d6316d"
 		},
 		.zqlite = .{
-			.url = "https://github.com/karlseguin/zqlite.zig/archive/63e2e3bc29877ed6a72e819e74145cedf5066e14.tar.gz",
-			.hash = "12203130c2bbbed066ea396483a95f0fb7980e7fdee77c03abebda1d5b1796fd7f8b"
+			.url = "https://github.com/karlseguin/zqlite.zig/archive/b003e350055ede8a75d6cee40022d95bddb40f2d.tar.gz",
+			.hash = "122062d336551343688f6f434404dcd5caad52dcbad631672f6bf5a48bc94ead0368"
 		},
 		.yazap = .{
-			.url = "https://github.com/karlseguin/yazap/archive/c7ca7189efaa29f5679dc2a95b6360860f0294e9.tar.gz",
-			.hash = "12205dc65ca80407b1cdcafc1fbc6f4297bfd99f2fb6c8536551c84811607a5b8cb6"
+			.url = "https://github.com/karlseguin/yazap/archive/9cb88444446565721e6e628bad17a731f112496f.tar.gz",
+			.hash = "122008159554f0b970e9ba341824d624b53f9f14ac20cd235ced11779eb2ccb08d4a"
 		},
 	},
 }

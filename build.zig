@@ -52,10 +52,10 @@ pub fn build(b: *std.Build) !void {
 		run_cmd.addArgs(args);
 	}
 
-	// setup tests
 	const run_step = b.step("run", "Run the app");
 	run_step.dependOn(&run_cmd.step);
 
+	// setup tests
 	const tests = b.addTest(.{
 		.root_source_file = .{ .path = "src/main.zig" },
 		.target = target,
