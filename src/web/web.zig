@@ -112,7 +112,7 @@ pub fn notFound(res: *httpz.Response, desc: []const u8) !void {
 }
 
 pub fn validateJson(req: *httpz.Request, v: *validate.Object(void), env: *Env) !typed.Map {
-	const body = (try req.body()) orelse return error.InvalidJson;
+	const body = req.body() orelse return error.InvalidJson;
 	var validator = try env.validator();
 	const input = try v.validateJsonS(body, validator);
 	if (!validator.isValid()) {
@@ -243,7 +243,6 @@ test "web: getSessionID" {
 
 	try t.expectEqual(null, getSessionId(tc.web.req));
 }
-
 
 test "web: CachedResponse.write" {
 	var wt = t.web.init(.{});

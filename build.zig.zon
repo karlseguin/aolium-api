@@ -4,12 +4,12 @@
 	.version = "0.0.0",
 	.dependencies = .{
 		.httpz = .{
-			.url = "https://github.com/karlseguin/http.zig/archive/551a41aaf2ef1a409987a3650d19f077aebffb02.tar.gz",
-			.hash = "12207ce3b3a484a8a4abaf6ad7660005c60c7744e974074df0f4c6d97f4be989236a"
+			.url = "https://github.com/karlseguin/http.zig/archive/67fbbac0b1175d557e73cbf982bea9b59d105610.tar.gz",
+			.hash = "12205ee81239487c4dddc970e81282c69fccd921c88cb0e89309bc43274aa35678f2"
 		},
 		.cache = .{
-			.url = "https://github.com/karlseguin/cache.zig/archive/821fe29e9bdaba36118151f52feea257d69c9e52.tar.gz",
-			.hash = "122024104bb9408092ac7cdbba80edb697102ac9a6a8cd3fcf9ddecacb6d5ab14963"
+			.url = "https://github.com/karlseguin/cache.zig/archive/240f6f2ab6a66897e0d4cc402023384cee59d01f.tar.gz",
+			.hash = "12209963b6d1cc7bcd7f86992c1258d8460e7677c7beb4c0d2527cbdb126bd7b073e"
 		},
 		.logz = .{
 			.url = "https://github.com/karlseguin/log.zig/archive/a971ae6323db7c824704b8ae244380c1b95a2ee1.tar.gz",
