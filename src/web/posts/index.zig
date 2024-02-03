@@ -1,16 +1,17 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const zqlite = @import("zqlite");
 const buffer = @import("buffer");
 const raw_json = @import("raw_json");
 const validate = @import("validate");
-const datetime = @import("datetime");
 const posts = @import("_posts.zig");
 
 const web = posts.web;
 const aolium = web.aolium;
 const Allocator = std.mem.Allocator;
+
+const DEFAULT_UPDATED_AT = zul.DateTime.parse("2023-07-23T00:00:00Z", .rfc3339) catch unreachable;
 
 var index_validator: *validate.Object(void) = undefined;
 
@@ -156,10 +157,8 @@ const PostsFetcher = struct {
 				const text_value = posts.maybeRenderHTML(html, tpe, row, 4);
 				defer text_value.deinit();
 
-				var id_buf: [36]u8 = undefined;
+				const id = try zul.UUID.binToHex(row.blob(0), .lower);
 				var url_buf: [aolium.MAX_WEB_POST_URL]u8 = undefined;
-
-				const id = uuid.toString(row.blob(0), &id_buf);
 
 				try std.json.stringify(.{
 					.id = id,
@@ -220,12 +219,12 @@ const PostsFetcher = struct {
 			// gonna have to get the first row first
 			{
 				const row = rows.next() orelse {
-					try self.atomEnvelop(buf, "2023-07-23T00:00:00Z");
+					try self.atomEnvelop(buf, DEFAULT_UPDATED_AT);
 					try buf.write("</feed>");
 					return;
 				};
 
-				try self.atomEnvelop(buf, &datetime.fromTimestamp(@intCast(row.int(4))).toRFC3339());
+				try self.atomEnvelop(buf, try zul.DateTime.fromUnix(row.int(4), .seconds));
 				try self.atomEntry(buf, row);
 			}
 
@@ -237,7 +236,7 @@ const PostsFetcher = struct {
 		try buf.write("</feed>");
 	}
 
-	fn atomEnvelop(self: *const PostsFetcher, buf: *buffer.Buffer, updated: []const u8) !void {
+	fn atomEnvelop(self: *const PostsFetcher, buf: *buffer.Buffer, updated: zul.DateTime) !void {
 		const username = self.username;
 
 		try std.fmt.format(buf.writer(),
@@ -257,10 +256,9 @@ const PostsFetcher = struct {
 	fn atomEntry(self: *const PostsFetcher, buf: *buffer.Buffer, row: zqlite.Row) !void {
 		const html = self.html;
 
-		var id_buf: [36]u8 = undefined;
-		const id = uuid.toString(row.blob(0), &id_buf);
-		const created = datetime.fromTimestamp(@intCast(row.int(3))).toRFC3339();
-		const updated = datetime.fromTimestamp(@intCast(row.int(4))).toRFC3339();
+		const id = try zul.UUID.binToHex(row.blob(0), .lower);
+		const created = try zul.DateTime.fromUnix(row.int(3), .seconds);
+		const updated = try zul.DateTime.fromUnix(row.int(4), .seconds);
 
 		const content_type = if (html) "html" else "text";
 		try buf.write("\t<entry>\n\t\t<title>");

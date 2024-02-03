@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const comments = @import("_comments.zig");
@@ -19,7 +19,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		\\ and approved is null
 		\\ returning post_id
 	;
-	const args = .{&comment_id, user.id};
+	const args = .{&comment_id.bin, user.id};
 	const app = env.app;
 
 	{
@@ -38,7 +38,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		conn.exec("update posts set comments = comments + 1 where id = ?1", .{post_id}) catch |err| {
 			return aolium.sqliteErr("comments.approve.update", err, conn, env.logger);
 		};
-		app.clearPostCache(post_id);
+		app.clearPostCache(zul.UUID{.bin = post_id[0..16].*});
 	}
 	res.status = 204;
 }
@@ -76,7 +76,7 @@ test "posts.approve: post belongs to a different user" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(404);
 
-	const row = tc.getDataRow("select 1 from comments where id = ?1", .{&(try uuid.parse(cid))});
+	const row = tc.getDataRow("select 1 from comments where id = ?1", .{(try zul.UUID.parse(cid)).bin});
 	try t.expectEqual(true, row != null);
 }
 
@@ -105,6 +105,6 @@ test "posts.approve: success" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(204);
 
-	const row = tc.getDataRow("select approved from comments where id = ?1", .{&(try uuid.parse(cid))}).?;
+	const row = tc.getDataRow("select approved from comments where id = ?1", .{(try zul.UUID.parse(cid)).bin}).?;
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "approved").?, 2);
 }

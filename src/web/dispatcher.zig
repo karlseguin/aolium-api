@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const logz = @import("logz");
 const cache = @import("cache");
 const httpz = @import("httpz");
@@ -57,7 +57,7 @@ pub const Dispatcher = struct {
 			},
 			else => {
 				code = aolium.codes.INTERNAL_SERVER_ERROR_CAUGHT;
-				const error_id = try uuid.allocHex(res.arena);
+				const error_id = try zul.UUID.random().toHexAlloc(res.arena, .lower);
 
 				res.status = 500;
 				res.header("Error-Id", error_id);

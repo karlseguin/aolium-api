@@ -1,14 +1,12 @@
 const std = @import("std");
 
-const LazyPath = std.Build.LazyPath;
-
 const ModuleMap = std.StringArrayHashMap(*std.Build.Module);
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 pub fn build(b: *std.Build) !void {
 	const target = b.standardTargetOptions(.{});
 	const optimize = b.standardOptimizeOption(.{});
 
+	var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 	const allocator = gpa.allocator();
 
 	var modules = ModuleMap.init(allocator);
@@ -16,25 +14,19 @@ pub fn build(b: *std.Build) !void {
 
 	const dep_opts = .{.target = target,.optimize = optimize};
 
+	try modules.put("zul", b.dependency("zul", dep_opts).module("zul"));
 	try modules.put("logz", b.dependency("logz", dep_opts).module("logz"));
 
 	try modules.put("httpz", b.dependency("httpz", dep_opts).module("httpz"));
-	// try modules.put("httpz", b.addModule("httpz", .{
-	// 	.source_file = .{.path = "lib/http.zig/src/httpz.zig"}
-	// }));
 
 	try modules.put("cache", b.dependency("cache", dep_opts).module("cache"));
 	try modules.put("buffer", b.dependency("buffer", dep_opts).module("buffer"));
 	try modules.put("typed", b.dependency("typed", dep_opts).module("typed"));
 	try modules.put("validate", b.dependency("validate", dep_opts).module("validate"));
-	try modules.put("yazap", b.dependency("yazap", dep_opts).module("yazap"));
 	try modules.put("zqlite", b.dependency("zqlite", dep_opts).module("zqlite"));
 
 	// local libraries
-	try modules.put("uuid", b.addModule("uuid", .{.source_file = .{.path = "lib/uuid/uuid.zig"}}));
-	try modules.put("raw_json", b.addModule("raw_json", .{.source_file = .{.path = "lib/raw_json/raw_json.zig"}}));
-	try modules.put("markdown", b.addModule("markdown", .{.source_file = .{.path = "lib/markdown/markdown.zig"}}));
-	try modules.put("datetime", b.addModule("datetime", .{.source_file = .{.path = "lib/datetime/datetime.zig"}}));
+	try modules.put("raw_json", b.addModule("raw_json", .{.root_source_file = .{.path = "lib/raw_json/raw_json.zig"}}));
 
 	// setup executable
 	const exe = b.addExecutable(.{
@@ -70,10 +62,12 @@ pub fn build(b: *std.Build) !void {
 	test_step.dependOn(&run_test.step);
 }
 
-fn addLibs(step: *std.Build.CompileStep, modules: ModuleMap) !void {
+fn addLibs(step: *std.Build.Step.Compile, modules: ModuleMap) !void {
+	const LazyPath = std.Build.LazyPath;
+
 	var it = modules.iterator();
 	while (it.next()) |m| {
-		step.addModule(m.key_ptr.*, m.value_ptr.*);
+		step.root_module.addImport(m.key_ptr.*, m.value_ptr.*);
 	}
 
 	step.linkLibC();

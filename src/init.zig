@@ -1,6 +1,6 @@
 const std = @import("std");
 const validate = @import("validate");
-const markdown = @import("markdown");
+const markdown = @import("markdown.zig");
 
 // There's no facility to do initialization on startup (like Go's init), so
 // we'll just hard-code this ourselves. The reason we extract this out is

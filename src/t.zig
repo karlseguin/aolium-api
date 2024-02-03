@@ -1,6 +1,6 @@
 const std = @import("std");
+const zul = @import("zul");
 const logz = @import("logz");
-const uuid = @import("uuid");
 const typed = @import("typed");
 const validate = @import("validate");
 const aolium = @import("aolium.zig");
@@ -257,7 +257,7 @@ const Inserter = struct {
 
 	pub fn session(self: Inserter, p: SessionParams) []const u8 {
 		const arena = self.ctx.arena;
-		const id = p.id orelse (uuid.allocHex(arena) catch unreachable);
+		const id = p.id orelse (zul.UUID.v4().toHexAlloc(arena, .lower) catch unreachable);
 
 		const sql =
 			\\ insert into sessions (id, user_id, expires)
@@ -293,7 +293,7 @@ const Inserter = struct {
 		const user_id = p.user_id;
 
 		const arena = self.ctx.arena;
-		const id = &uuid.bin();
+		const id = zul.UUID.v4();
 
 		var tags: ?[]const u8 = null;
 		if (p.tags) |tgs| {
@@ -304,7 +304,7 @@ const Inserter = struct {
 			\\ insert into posts (id, user_id, title, text, type, tags, comments, created, updated)
 			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
 		;
-		const args = .{id, user_id, p.title, p.text orelse "", p.type orelse "simple", tags, p.comments, p.created, p.updated};
+		const args = .{&id.bin, user_id, p.title, p.text orelse "", p.type orelse "simple", tags, p.comments, p.created, p.updated};
 
 		const conn = app.getDataConn(0);
 		defer app.releaseDataConn(conn, 0);
@@ -314,8 +314,7 @@ const Inserter = struct {
 			unreachable;
 		};
 
-		const string_id = arena.alloc(u8, 36) catch unreachable;
-		return uuid.toString(id, string_id);
+		return id.toHexAlloc(arena, .lower) catch unreachable;
 	}
 
 	const CommentParams = struct {
@@ -333,15 +332,15 @@ const Inserter = struct {
 		const user_id = p.user_id;
 
 		const arena = self.ctx.arena;
-		const id = &uuid.bin();
+		const id = zul.UUID.v4();
 
-		const post_id = if (p.post_id) |pid| uuid.parse(pid) catch unreachable else uuid.bin();
+		const post_id = if (p.post_id) |pid| zul.UUID.parse(pid) catch unreachable else zul.UUID.v4();
 
 		const sql =
 			\\ insert into comments (id, post_id, user_id, name, comment, created, approved)
 			\\ values (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 		;
-		const args = .{id, &post_id, user_id, p.name orelse "", p.comment orelse "", p.created, p.approved};
+		const args = .{&id.bin, &post_id.bin, user_id, p.name orelse "", p.comment orelse "", p.created, p.approved};
 
 		const conn = app.getDataConn(0);
 		defer app.releaseDataConn(conn, 0);
@@ -351,8 +350,7 @@ const Inserter = struct {
 			unreachable;
 		};
 
-		const string_id = arena.alloc(u8, 36) catch unreachable;
-		return uuid.toString(id, string_id);
+		return id.toHexAlloc(arena, .lower) catch unreachable;
 	}
 };
 

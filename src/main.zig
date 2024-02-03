@@ -1,4 +1,5 @@
 const std = @import("std");
+const zul = @import("zul");
 const logz = @import("logz");
 const httpz = @import("httpz");
 const aolium = @import("aolium.zig");
@@ -37,27 +38,12 @@ pub fn main() !void {
 }
 
 fn parseArgs(allocator: Allocator) !aolium.Config {
-	const yazap = @import("yazap");
-
-	var app = yazap.App.init(allocator, "aolium", "A aolium server");
-
-	var cmd = app.rootCommand();
-	try cmd.addArg(yazap.Arg.booleanOption("version", 'v', "Print the version and exit"));
-	try cmd.addArg(yazap.Arg.booleanOption("log_http", null, "Log http requests"));
-	try cmd.addArg(yazap.Arg.singleValueOption("root", null, "Root database path, can be absolute or relative, must exist (default: ./db"));
-	try cmd.addArg(yazap.Arg.singleValueOption("cors", null, "Enables CORS header for the specified origin (default, none)"));
-	try cmd.addArg(yazap.Arg.singleValueOption("port", null, "Port to listen on (default: 8517)"));
-	try cmd.addArg(yazap.Arg.singleValueOption("instance_id", null, "If running multiple instances, giving each one a unique instance_id will improve the uniqueness of request_id (default: 0)"));
-	try cmd.addArg(yazap.Arg.singleValueOption("address", null, "Address to bind to (default: 127.0.0.1)"));
-	try cmd.addArg(yazap.Arg.singleValueOptionWithValidValues("log_level", null, "Log level to use (default: INFO), see also log_http)", &[_][]const u8{"info", "warn", "error", "fatal", "none"}));
+	var args = try zul.CommandLineArgs.parse(allocator);
+	defer args.deinit();
 
 	const stdout = std.io.getStdOut().writer();
-	const args = app.parseProcess() catch {
-		try stdout.print("Use ircz --help to list available arguments\n", .{});
-		std.os.exit(1);
-	};
 
-	if (args.containsArg("version")) {
+	if (args.contains("version")) {
 		try std.io.getStdOut().writer().print("{s}", .{aolium.version});
 		std.os.exit(0);
 	}
@@ -68,36 +54,36 @@ fn parseArgs(allocator: Allocator) !aolium.Config {
 	var log_level = logz.Level.Info;
 	var cors: ?httpz.Config.CORS = null;
 
-	const log_http = args.containsArg("log_http");
+	const log_http = args.contains("log_http");
 
-	if (args.getSingleValue("port")) |value| {
+	if (args.get("port")) |value| {
 		port = std.fmt.parseInt(u16, value, 10) catch {
 			try stdout.print("port must be a positive integer\n", .{});
 			std.os.exit(2);
 		};
 	}
 
-	if (args.getSingleValue("address")) |value| {
-		address = value;
+	if (args.get("address")) |value| {
+		address = try allocator.dupe(u8, value);
 	}
 
-	if (args.getSingleValue("log_level")) |value| {
+	if (args.get("log_level")) |value| {
 		log_level = logz.Level.parse(value) orelse {
 			try stdout.print("invalid log_level value\n", .{});
 			std.os.exit(2);
 		};
 	}
 
-	if (args.getSingleValue("instance_id")) |value| {
+	if (args.get("instance_id")) |value| {
 		instance_id = std.fmt.parseInt(u8, value, 10) catch {
 			try stdout.print("instance_id must be an integer between 0 and 255r\n", .{});
 			std.os.exit(2);
 		};
 	}
 
-	if (args.getSingleValue("cors")) |value| {
+	if (args.get("cors")) |value| {
 		cors = httpz.Config.CORS{
-			.origin = value,
+			.origin = try allocator.dupe(u8, value),
 			.max_age = "7200",
 			.headers = "content-type,authorization",
 			.methods = "GET,POST,PUT,DELETE",
@@ -105,7 +91,7 @@ fn parseArgs(allocator: Allocator) !aolium.Config {
 	}
 
 	var root: [:0]u8 = undefined;
-	const path = args.getSingleValue("root") orelse "db/";
+	const path = args.get("root") orelse "db/";
 	if (std.fs.path.isAbsolute(path)) {
 		root = try allocator.dupeZ(u8, path);
 	} else {

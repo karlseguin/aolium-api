@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const comments = @import("_comments.zig");
@@ -41,14 +41,14 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		}
 	}
 
-	const comment_id = uuid.bin();
+	const comment_id = zul.UUID.v4();
 
 	{
 		const conn = app.getDataConn(post_author.shard_id);
 		defer app.releaseDataConn(conn, post_author.shard_id);
 
 		const get_post_sql = "select 1 from posts where id = ?1 and user_id = ?2";
-		const row = conn.row(get_post_sql, .{&post_id, post_author_id}) catch |err| {
+		const row = conn.row(get_post_sql, .{&post_id.bin, post_author_id}) catch |err| {
 			return aolium.sqliteErr("comments.select", err, conn, env.logger);
 		} orelse {
 			return web.notFound(res, "post doesn't exist");
@@ -56,23 +56,20 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		row.deinit();
 
 		const insert_comment_sql = "insert into comments (id, post_id, user_id, name, comment, approved) values (?1, ?2, ?3, ?4, ?5, ?6)";
-		conn.exec(insert_comment_sql, .{&comment_id, &post_id, commentor_id, name, comment, approved}) catch |err| {
+		conn.exec(insert_comment_sql, .{&comment_id.bin, &post_id.bin, commentor_id, name, comment, approved}) catch |err| {
 			return aolium.sqliteErr("comments.insert", err, conn, env.logger);
 		};
 
 		if (approved != null) {
 			const update_post_sql = "update posts set comments = comments + 1 where id = ?1";
-			conn.exec(update_post_sql, .{&post_id}) catch |err| {
+			conn.exec(update_post_sql, .{&post_id.bin}) catch |err| {
 				return aolium.sqliteErr("comments.post_update", err, conn, env.logger);
 			};
-			app.clearPostCache(&post_id);
+			app.clearPostCache(post_id);
 		}
 	}
 
-	var hex_uuid: [36]u8 = undefined;
-	return res.json(.{
-		.id = uuid.toString(&comment_id, &hex_uuid),
-	}, .{});
+	return res.json(.{.id = comment_id}, .{});
 }
 
 const t = aolium.testing;
@@ -105,7 +102,7 @@ test "comments.create: unknown user" {
 	var tc = t.context(.{});
 	defer tc.deinit();
 
-	tc.web.param("id", try uuid.allocHex(tc.arena));
+	tc.web.param("id", try zul.UUID.v4().toHexAlloc(tc.arena, .lower));
 	tc.web.json(.{.comment = "It", .username = "unknown-user"});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(404);
@@ -133,16 +130,16 @@ test "comments.create: anonymous" {
 
 	tc.web.param("id", post_id);
 	tc.web.json(.{.comment = "I think you are wrong and stupid!", .username = "anon-comment-1"});
-	try handler(tc.env(), tc.web.req, tc.web.res);
+try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
-	const id = body.get("id").?.string;
+	const id = try zul.UUID.parse(body.get("id").?.string);
 
-	const row = tc.getDataRow("select * from comments where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from comments where id = ?1", .{&id.bin}).?;
 	try t.expectEqual(null, row.get(i64, "user_id"));
 	try t.expectEqual(null, row.get([]u8, "name"));
 	try t.expectEqual(null, row.get(i64, "approved"));
-	try t.expectSlice(u8, &try uuid.parse(post_id), row.get([]u8, "post_id").?);
+	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get([]u8, "post_id").?);
 	try t.expectString("I think you are wrong and stupid!", row.get([]u8, "comment").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
 }
@@ -150,7 +147,6 @@ test "comments.create: anonymous" {
 test "comments.create: from non-author user" {
 	var tc = t.context(.{});
 	defer tc.deinit();
-
 
 	const uid1 = tc.insert.user(.{.username = "user-comment-2a"});
 	const uid2 = tc.insert.user(.{.username = "user-comment-2b"});
@@ -162,17 +158,16 @@ test "comments.create: from non-author user" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
-	const id = body.get("id").?.string;
+	const id = try zul.UUID.parse(body.get("id").?.string);
 
-	const row = tc.getDataRow("select * from comments where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from comments where id = ?1", .{&id.bin}).?;
 	try t.expectEqual(uid1, row.get(i64, "user_id"));
 	try t.expectString("user-comment-2a", row.get([]u8, "name").?);
 	try t.expectString("no you are", row.get([]u8, "comment").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-	try t.expectSlice(u8, &try uuid.parse(post_id), row.get([]u8, "post_id").?);
+	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get([]u8, "post_id").?);
 	try t.expectEqual(null, row.get(i64, "approved"));
 }
-
 
 test "comments.create: from author" {
 	var tc = t.context(.{});
@@ -188,13 +183,13 @@ test "comments.create: from author" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
-	const id = body.get("id").?.string;
+	const id = try zul.UUID.parse(body.get("id").?.string);
 
-	const row = tc.getDataRow("select * from comments where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from comments where id = ?1", .{&id.bin}).?;
 	try t.expectEqual(uid1, row.get(i64, "user_id"));
 	try t.expectString("author-comment-1", row.get([]u8, "name").?);
 	try t.expectString("no you are", row.get([]u8, "comment").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-	try t.expectSlice(u8, &try uuid.parse(post_id), row.get([]u8, "post_id").?);
+	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get([]u8, "post_id").?);
 	try t.expectDelta(std.time.timestamp(), row.get(i64, "approved").?, 2);
 }

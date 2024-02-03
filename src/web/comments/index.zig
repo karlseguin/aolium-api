@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const comments = @import("_comments.zig");
@@ -39,17 +39,14 @@ pub fn handler(env: *aolium.Env, _: *httpz.Request, res: *httpz.Response) !void 
 		defer rows.deinit();
 
 		while (rows.next()) |row| {
-			var id_buf: [36]u8 = undefined;
-			var post_id_buf: [36]u8 = undefined;
-
 			const comment_value = posts.maybeRenderHTML(true, "comment", row, 2);
 			defer comment_value.deinit();
 
 			try std.json.stringify(.{
-				.id = uuid.toString(row.blob(0), &id_buf),
+				.id = try zul.UUID.binToHex(row.blob(0), .lower),
 				.name = row.nullableText(1),
 				.comment = comment_value.value(),
-				.post_id = uuid.toString(row.blob(3), &post_id_buf),
+				.post_id = try zul.UUID.binToHex(row.blob(3), .lower),
 				.post = row.text(4),
 				.created = row.int(5),
 			}, .{.emit_null_optional_fields = false}, writer);

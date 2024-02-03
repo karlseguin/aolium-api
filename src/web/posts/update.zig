@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const posts = @import("_posts.zig");
@@ -20,7 +20,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		\\ where id = ?1 and user_id = ?2
 	;
 
-	const args = .{&post_id, user.id, post.title, post.text, post.type, post.tags};
+	const args = .{&post_id.bin, user.id, post.title, post.text, post.type, post.tags};
 
 	const app = env.app;
 
@@ -39,7 +39,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	}
 
 	app.clearUserCache(user.id);
-	app.clearPostCache(&post_id);
+	app.clearPostCache(post_id);
 	res.status = 204;
 }
 
@@ -143,7 +143,7 @@ test "posts.update: post belongs to a different user" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(404);
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{(try zul.UUID.parse(id)).bin}).?;
 	try t.expectEqual(4, row.get(i64, "user_id").?);
 	try t.expectString("simple", row.get([]u8, "type").?);
 	try t.expectString("hack-proof", row.get([]u8, "text").?);
@@ -164,7 +164,7 @@ test "posts.update: simple" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(204);
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{(try zul.UUID.parse(id)).bin}).?;
 	try t.expectEqual(3913, row.get(i64, "user_id").?);
 	try t.expectString("simple", row.get([]u8, "type").?);
 	try t.expectString("hello world!!", row.get([]u8, "text").?);
@@ -184,7 +184,7 @@ test "posts.update: link" {
 	tc.web.json(.{.type = "link", .title = "FFmpeg - The Ultimate Guide", .text = "img.ly/blog/ultimate-guide-to-ffmpeg/"});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{(try zul.UUID.parse(id)).bin}).?;
 	try t.expectEqual(3914, row.get(i64, "user_id").?);
 	try t.expectString("link", row.get([]u8, "type").?);
 	try t.expectString("https://img.ly/blog/ultimate-guide-to-ffmpeg/", row.get([]u8, "text").?);
@@ -204,7 +204,7 @@ test "posts.update: long" {
 	tc.web.json(.{.type = "long", .title = "A Title!", .text = "Some !content\nOk", .tags = .{"t1", "soup"}});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{(try zul.UUID.parse(id)).bin}).?;
 	try t.expectEqual(441, row.get(i64, "user_id").?);
 	try t.expectString("long", row.get([]u8, "type").?);
 	try t.expectString("Some !content\nOk", row.get([]u8, "text").?);

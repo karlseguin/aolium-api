@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const raw_json = @import("raw_json");
@@ -44,17 +44,17 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 const PostFetcher = struct {
 	html: bool,
 	comments: bool,
-	post_id: [16]u8,
+	post_id: zul.UUID,
 	env: *aolium.Env,
 	user: aolium.User,
 	cache_key: [17]u8,
 	arena: std.mem.Allocator,
 
-	fn init(arena: Allocator, env: *aolium.Env, post_id: [16]u8, user: aolium.User, html: bool, comments: bool) PostFetcher {
+	fn init(arena: Allocator, env: *aolium.Env, post_id: zul.UUID, user: aolium.User, html: bool, comments: bool) PostFetcher {
 		// post_id + (html | comments)
 		// 16      + 1
 		var cache_key: [17]u8 = undefined;
-		@memcpy(cache_key[0..16], &post_id);
+		@memcpy(cache_key[0..16], &post_id.bin);
 		cache_key[16] = if (html) 1 else 0;
 		cache_key[16] |= if (comments) 2 else 0;
 
@@ -95,7 +95,7 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 				\\ select type, title, text, tags, created, updated
 				\\ from posts where id = ?1 and user_id = ?2
 			;
-			var row = conn.row(sql, .{&post_id, user.id}) catch |err| {
+			var row = conn.row(sql, .{&post_id.bin, user.id}) catch |err| {
 				return aolium.sqliteErr("posts.get", err, conn, env.logger);
 			} orelse {
 				return null;
@@ -106,9 +106,8 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 			const text_value = posts.maybeRenderHTML(html, tpe, row, 2);
 			defer text_value.deinit();
 
-			var id_buf: [36]u8 = undefined;
 			try std.json.stringify(.{
-				.id = uuid.toString(&post_id, &id_buf),
+				.id = post_id,
 				.type = tpe,
 				.title = row.nullableText(1),
 				.text = text_value.value(),
@@ -128,21 +127,18 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 					\\ from comments where post_id = ?1 and approved is not null
 					\\ order by created
 				;
-				var rows = conn.rows(sql, .{&post_id}) catch |err| {
+				var rows = conn.rows(sql, .{&post_id.bin}) catch |err| {
 					return aolium.sqliteErr("posts.get.comments", err, conn, env.logger);
 				};
 				defer rows.deinit();
 
 				var has_comments = false;
 				while (rows.next()) |row| {
-					var id_buf: [36]u8 = undefined;
-					const id = uuid.toString(row.blob(0), &id_buf);
-
 					const comment_value = posts.maybeRenderHTML(html, "comment", row, 2);
 					defer comment_value.deinit();
 
 					try std.json.stringify(.{
-						.id = id,
+						.id = try zul.UUID.binToHex(row.blob(0), .lower),
 						.name = row.text(1),
 						.created = row.int(3),
 						.comment = comment_value.value(),

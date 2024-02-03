@@ -1,6 +1,6 @@
 const std = @import("std");
+const zul = @import("zul");
 const logz = @import("logz");
-const uuid = @import("uuid");
 const httpz = @import("httpz");
 const typed = @import("typed");
 const validate = @import("validate");
@@ -143,8 +143,8 @@ pub fn validateQuery(req: *httpz.Request, args: []const []const u8, v: *validate
 	return input orelse typed.Map.readonlyEmpty();
 }
 
-pub fn parseUUID(field: []const u8, raw: []const u8, env: *Env) ![16]u8 {
-	return uuid.parse(raw) catch {
+pub fn parseUUID(field: []const u8, raw: []const u8, env: *Env) !zul.UUID {
+	return zul.UUID.parse(raw) catch {
 		(try env.validator()).addInvalidField(.{
 			.field = field,
 			.err = "is not valid",

@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const posts = @import("_posts.zig");
@@ -12,9 +12,9 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	const post = try posts.Post.create(req.arena, input);
 
 	const user = env.user.?;
-	const post_id = uuid.bin();
+	const post_id = zul.UUID.v4();
 	const sql = "insert into posts (id, user_id, title, text, type, tags) values (?1, ?2, ?3, ?4, ?5, ?6)";
-	const args = .{&post_id, user.id, post.title, post.text, post.type, post.tags};
+	const args = .{&post_id.bin, user.id, post.title, post.text, post.type, post.tags};
 
 	const app = env.app;
 
@@ -29,11 +29,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	}
 
 	app.clearUserCache(user.id);
-
-	var hex_uuid: [36]u8 = undefined;
-	return res.json(.{
-		.id = uuid.toString(&post_id, &hex_uuid),
-	}, .{});
+	return res.json(.{.id = post_id}, .{});
 }
 
 const t = aolium.testing;
@@ -112,9 +108,9 @@ test "posts.create: simple" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
-	const id = body.get("id").?.string;
+	const id = try zul.UUID.parse(body.get("id").?.string);
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{id.bin}).?;
 	try t.expectEqual(3913, row.get(i64, "user_id").?);
 	try t.expectString("simple", row.get([]u8, "type").?);
 	try t.expectString("hello world!", row.get([]u8, "text").?);
@@ -133,9 +129,9 @@ test "posts.create: link" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
-	const id = body.get("id").?.string;
+	const id = try zul.UUID.parse(body.get("id").?.string);
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{id.bin}).?;
 	try t.expectEqual(3914, row.get(i64, "user_id").?);
 	try t.expectString("link", row.get([]u8, "type").?);
 	try t.expectString("https://img.ly/blog/ultimate-guide-to-ffmpeg/", row.get([]u8, "text").?);
@@ -154,9 +150,9 @@ test "posts.create: long" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
-	const id = body.get("id").?.string;
+	const id = try zul.UUID.parse(body.get("id").?.string);
 
-	const row = tc.getDataRow("select * from posts where id = ?1", .{&(try uuid.parse(id))}).?;
+	const row = tc.getDataRow("select * from posts where id = ?1", .{id.bin}).?;
 	try t.expectEqual(3914, row.get(i64, "user_id").?);
 	try t.expectString("long", row.get([]u8, "type").?);
 	try t.expectString("Some content\nOk", row.get([]u8, "text").?);

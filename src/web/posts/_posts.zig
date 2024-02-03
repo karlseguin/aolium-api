@@ -1,9 +1,9 @@
 const std = @import("std");
 const typed = @import("typed");
 const zqlite = @import("zqlite");
-const markdown = @import("markdown");
 const validate = @import("validate");
 pub const web = @import("../web.zig");
+const markdown = @import("../../markdown.zig");
 
 const aolium = web.aolium;
 const Allocator = std.mem.Allocator;

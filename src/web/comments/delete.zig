@@ -1,5 +1,5 @@
 const std = @import("std");
-const uuid = @import("uuid");
+const zul = @import("zul");
 const httpz = @import("httpz");
 const validate = @import("validate");
 const comments = @import("_comments.zig");
@@ -18,7 +18,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		\\ )
 	;
 
-	const args = .{&comment_id, user.id};
+	const args = .{&comment_id.bin, user.id};
 	const app = env.app;
 
 	{
@@ -70,7 +70,7 @@ test "posts.delete: post belongs to a different user" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(404);
 
-	const row = tc.getDataRow("select 1 from comments where id = ?1", .{&(try uuid.parse(cid))});
+	const row = tc.getDataRow("select 1 from comments where id = ?1", .{(try zul.UUID.parse(cid)).bin});
 	try t.expectEqual(true, row != null);
 }
 
@@ -86,6 +86,6 @@ test "posts.delete: success" {
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(204);
 
-	const row = tc.getDataRow("select 1 from comments where id = ?1", .{&(try uuid.parse(cid))});
+	const row = tc.getDataRow("select 1 from comments where id = ?1", .{(try zul.UUID.parse(cid)).bin});
 	try t.expectEqual(true, row == null);
 }
