@@ -4,8 +4,8 @@
 	.version = "0.0.0",
 	.dependencies = .{
 		.httpz = .{
-			.url = "https://github.com/karlseguin/http.zig/archive/0da6906ed448f2e4dea363e11692955959067942.tar.gz",
-			.hash = "12202fa725ebf8f095ea362c8f414cf59f2ebf3c5d5749eb3c02c3f0335f2d17dc2b"
+			.url = "https://github.com/karlseguin/http.zig/archive/nonblocking_threadpool.tar.gz",
+			.hash = "1220a7fb6e5d5e67b3f1a12a69f145e90a20fad5991c7f7deb73cae23f1fa4817462"
 		},
 		.cache = .{
 			.url = "https://github.com/karlseguin/cache.zig/archive/af1a100666aa9c10aa323618f76679f379df54b6.tar.gz",
