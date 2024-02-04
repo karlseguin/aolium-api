@@ -1,5 +1,6 @@
 const std = @import("std");
 
+const LazyPath = std.Build.LazyPath;
 const ModuleMap = std.StringArrayHashMap(*std.Build.Module);
 
 pub fn build(b: *std.Build) !void {
@@ -23,7 +24,33 @@ pub fn build(b: *std.Build) !void {
 	try modules.put("buffer", b.dependency("buffer", dep_opts).module("buffer"));
 	try modules.put("typed", b.dependency("typed", dep_opts).module("typed"));
 	try modules.put("validate", b.dependency("validate", dep_opts).module("validate"));
-	try modules.put("zqlite", b.dependency("zqlite", dep_opts).module("zqlite"));
+
+	const zqlite = b.dependency("zqlite", dep_opts).module("zqlite");
+	zqlite.addCSourceFile(.{
+		.file = LazyPath.relative("lib/sqlite3/sqlite3.c"),
+		.flags = &[_][]const u8{
+			"-DSQLITE_DQS=0",
+			"-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1",
+			"-DSQLITE_USE_ALLOCA=1",
+			"-DSQLITE_THREADSAFE=1",
+			"-DSQLITE_TEMP_STORE=3",
+			"-DSQLITE_ENABLE_API_ARMOR=1",
+			"-DSQLITE_ENABLE_UNLOCK_NOTIFY",
+			"-DSQLITE_ENABLE_UPDATE_DELETE_LIMIT=1",
+			"-DSQLITE_DEFAULT_FILE_PERMISSIONS=0600",
+			"-DSQLITE_OMIT_DECLTYPE=1",
+			"-DSQLITE_OMIT_DEPRECATED=1",
+			"-DSQLITE_OMIT_LOAD_EXTENSION=1",
+			"-DSQLITE_OMIT_PROGRESS_CALLBACK=1",
+			"-DSQLITE_OMIT_SHARED_CACHE",
+			"-DSQLITE_OMIT_TRACE=1",
+			"-DSQLITE_OMIT_UTF16=1",
+			"-DHAVE_USLEEP=0",
+		},
+	});
+	zqlite.addIncludePath(LazyPath.relative("lib/sqlite3/"));
+	try modules.put("zqlite", zqlite);
+
 
 	// local libraries
 	try modules.put("raw_json", b.addModule("raw_json", .{.root_source_file = .{.path = "lib/raw_json/raw_json.zig"}}));
@@ -63,8 +90,6 @@ pub fn build(b: *std.Build) !void {
 }
 
 fn addLibs(step: *std.Build.Step.Compile, modules: ModuleMap) !void {
-	const LazyPath = std.Build.LazyPath;
-
 	var it = modules.iterator();
 	while (it.next()) |m| {
 		step.root_module.addImport(m.key_ptr.*, m.value_ptr.*);
@@ -77,28 +102,4 @@ fn addLibs(step: *std.Build.Step.Compile, modules: ModuleMap) !void {
 	step.addIncludePath(LazyPath.relative("lib/markdown"));
 	step.linkSystemLibrary("cmark-gfm");
 	step.linkSystemLibrary("cmark-gfm-extensions");
-
-	step.addCSourceFile(.{
-		.file = LazyPath.relative("lib/sqlite3/sqlite3.c"),
-		.flags = &[_][]const u8{
-			"-DSQLITE_DQS=0",
-			"-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1",
-			"-DSQLITE_USE_ALLOCA=1",
-			"-DSQLITE_THREADSAFE=1",
-			"-DSQLITE_TEMP_STORE=3",
-			"-DSQLITE_ENABLE_API_ARMOR=1",
-			"-DSQLITE_ENABLE_UNLOCK_NOTIFY",
-			"-DSQLITE_ENABLE_UPDATE_DELETE_LIMIT=1",
-			"-DSQLITE_DEFAULT_FILE_PERMISSIONS=0600",
-			"-DSQLITE_OMIT_DECLTYPE=1",
-			"-DSQLITE_OMIT_DEPRECATED=1",
-			"-DSQLITE_OMIT_LOAD_EXTENSION=1",
-			"-DSQLITE_OMIT_PROGRESS_CALLBACK=1",
-			"-DSQLITE_OMIT_SHARED_CACHE",
-			"-DSQLITE_OMIT_TRACE=1",
-			"-DSQLITE_OMIT_UTF16=1",
-			"-DHAVE_USLEEP=1",
-		},
-	});
-	step.addIncludePath(LazyPath.relative("lib/sqlite3/"));
 }
