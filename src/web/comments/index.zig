@@ -11,8 +11,8 @@ const Allocator = std.mem.Allocator;
 
 pub fn handler(env: *aolium.Env, _: *httpz.Request, res: *httpz.Response) !void {
 	const app = env.app;
-	var sb = try app.buffers.acquireWithAllocator(res.arena);
-	defer app.buffers.release(sb);
+	var sb = try app.buffers.acquire();
+	defer sb.release();
 
 	const prefix = "{\"comments\": [";
 	try sb.write(prefix);

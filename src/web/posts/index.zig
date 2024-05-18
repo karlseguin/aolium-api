@@ -2,7 +2,6 @@ const std = @import("std");
 const zul = @import("zul");
 const httpz = @import("httpz");
 const zqlite = @import("zqlite");
-const buffer = @import("buffer");
 const raw_json = @import("raw_json");
 const validate = @import("validate");
 const posts = @import("_posts.zig");
@@ -26,19 +25,19 @@ pub fn init(builder: *validate.Builder(void)) void {
 }
 
 pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
-	const input = try web.validateQuery(req, &[_][]const u8{"username", "html", "atom", "full", "page"}, index_validator, env);
+	const input = try web.validateQuery(req, index_validator, env);
 
 	const app = env.app;
-	const username = input.get([]u8, "username").?;
+	const username = input.get("username").?.string;
 	const user = try app.getUserFromUsername(username) orelse {
 		return web.notFound(res, "username doesn't exist");
 	};
 
-	const atom = input.get(bool, "atom") orelse false;
-	const html = input.get(bool, "html") orelse true;
-	const full = input.get(bool, "full") orelse true;
+	const atom = if (input.get("atom")) |i| i.bool else false;
+	const html = if (input.get("html")) |i| i.bool else true;
+	const full = if (input.get("full")) |i| i.bool else true;
 	// only do first page for atom
-	const page = if (atom) 1 else input.get(u16, "page") orelse 1;
+	const page = if (atom) 1 else if (input.get("page")) |p| p.u16 else 1;
 
 	const fetcher = PostsFetcher.init(req.arena, env, user, username, page, html, atom, full);
 
@@ -88,8 +87,8 @@ const PostsFetcher = struct {
 		const shard_id = self.user.shard_id;
 
 		const app = env.app;
-		var sb = try app.buffers.acquireWithAllocator(self.arena);
-		defer app.buffers.release(sb);
+		var sb = try app.buffers.acquire();
+		defer sb.release();
 
 		{
 			// this block exists so that conn is released ASAP, specifically avoiding
@@ -112,7 +111,7 @@ const PostsFetcher = struct {
 		};
 	}
 
-	fn generateJSON(self: *const PostsFetcher, conn: zqlite.Conn, buf: *buffer.Buffer) !void {
+	fn generateJSON(self: *const PostsFetcher, conn: zqlite.Conn, buf: *zul.StringBuilder) !void {
 		const html = self.html;
 		const user = self.user;
 		const username = self.username;
@@ -193,7 +192,7 @@ const PostsFetcher = struct {
 		try buf.write(if (more) "true}" else "false}");
 	}
 
-	fn generateAtom(self: *const PostsFetcher, conn: zqlite.Conn , buf: *buffer.Buffer) !void {
+	fn generateAtom(self: *const PostsFetcher, conn: zqlite.Conn , buf: *zul.StringBuilder) !void {
 		const user = self.user;
 
 		const sql =
@@ -236,7 +235,7 @@ const PostsFetcher = struct {
 		try buf.write("</feed>");
 	}
 
-	fn atomEnvelop(self: *const PostsFetcher, buf: *buffer.Buffer, updated: zul.DateTime) !void {
+	fn atomEnvelop(self: *const PostsFetcher, buf: *zul.StringBuilder, updated: zul.DateTime) !void {
 		const username = self.username;
 
 		try std.fmt.format(buf.writer(),
@@ -253,7 +252,7 @@ const PostsFetcher = struct {
 		, .{username, username, username, updated, username, username});
 	}
 
-	fn atomEntry(self: *const PostsFetcher, buf: *buffer.Buffer, row: zqlite.Row) !void {
+	fn atomEntry(self: *const PostsFetcher, buf: *zul.StringBuilder, row: zqlite.Row) !void {
 		const html = self.html;
 
 		const id = try zul.UUID.binToHex(row.blob(0), .lower);
@@ -297,7 +296,7 @@ const PostsFetcher = struct {
 //    ensureUnusedCapacity(html.len * 5)
 // but in small chunks of 1000.
 // Note: when the we're writing from the output of cmark, & is alreay escaped
-fn writeEscapeXML(buf: *buffer.Buffer, content: []const u8, amp_escaped: bool) !void {
+fn writeEscapeXML(buf: *zul.StringBuilder, content: []const u8, amp_escaped: bool) !void {
 	var raw = content;
 	while (raw.len > 0) {
 		const chunk_size = if (raw.len > 1000) 1000 else raw.len;

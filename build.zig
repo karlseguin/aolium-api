@@ -20,13 +20,12 @@ pub fn build(b: *std.Build) !void {
 
 	try modules.put("httpz", b.dependency("httpz", dep_opts).module("httpz"));
 	try modules.put("cache", b.dependency("cache", dep_opts).module("cache"));
-	try modules.put("buffer", b.dependency("buffer", dep_opts).module("buffer"));
 	try modules.put("typed", b.dependency("typed", dep_opts).module("typed"));
 	try modules.put("validate", b.dependency("validate", dep_opts).module("validate"));
 
 	const zqlite = b.dependency("zqlite", dep_opts).module("zqlite");
 	zqlite.addCSourceFile(.{
-		.file = LazyPath.relative("lib/sqlite3/sqlite3.c"),
+		.file = b.path("lib/sqlite3/sqlite3.c"),
 		.flags = &[_][]const u8{
 			"-DSQLITE_DQS=0",
 			"-DSQLITE_DEFAULT_WAL_SYNCHRONOUS=1",
@@ -47,9 +46,8 @@ pub fn build(b: *std.Build) !void {
 			"-DHAVE_USLEEP=0",
 		},
 	});
-	zqlite.addIncludePath(LazyPath.relative("lib/sqlite3/"));
+	zqlite.addIncludePath(b.path("lib/sqlite3/"));
 	try modules.put("zqlite", zqlite);
-
 
 	// local libraries
 	try modules.put("raw_json", b.addModule("raw_json", .{.root_source_file = .{.path = "lib/raw_json/raw_json.zig"}}));
@@ -61,7 +59,7 @@ pub fn build(b: *std.Build) !void {
 		.target = target,
 		.optimize = optimize,
 	});
-	try addLibs(exe, modules);
+	try addLibs(b, exe, modules);
 	b.installArtifact(exe);
 
 	const run_cmd = b.addRunArtifact(exe);
@@ -78,9 +76,10 @@ pub fn build(b: *std.Build) !void {
 		.root_source_file = .{ .path = "src/main.zig" },
 		.target = target,
 		.optimize = optimize,
+		.test_runner = b.path("test_runner.zig"),
 	});
 
-	try addLibs(tests, modules);
+	try addLibs(b, tests, modules);
 	const run_test = b.addRunArtifact(tests);
 	run_test.has_side_effects = true;
 
@@ -88,7 +87,7 @@ pub fn build(b: *std.Build) !void {
 	test_step.dependOn(&run_test.step);
 }
 
-fn addLibs(step: *std.Build.Step.Compile, modules: ModuleMap) !void {
+fn addLibs(b: *std.Build, step: *std.Build.Step.Compile, modules: ModuleMap) !void {
 	var it = modules.iterator();
 	while (it.next()) |m| {
 		step.root_module.addImport(m.key_ptr.*, m.value_ptr.*);
@@ -96,9 +95,9 @@ fn addLibs(step: *std.Build.Step.Compile, modules: ModuleMap) !void {
 
 	step.linkLibC();
 
-	step.addRPath(LazyPath.relative("lib/markdown"));
-	step.addLibraryPath(LazyPath.relative("lib/markdown"));
-	step.addIncludePath(LazyPath.relative("lib/markdown"));
+	step.addRPath(b.path("lib/markdown"));
+	step.addLibraryPath(b.path("lib/markdown"));
+	step.addIncludePath(b.path("lib/markdown"));
 	step.linkSystemLibrary("cmark-gfm");
 	step.linkSystemLibrary("cmark-gfm-extensions");
 }

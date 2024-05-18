@@ -57,18 +57,18 @@ pub fn init(builder: *validate.Builder(void)) void {
 
 pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, register_validator, env);
-	const username = input.get([]u8, "username").?;
+	const username = input.get("username").?.string;
 
 	var pw_buf: [128]u8 = undefined;
-	const hashed_password = try argon2.strHash(input.get([]u8, "password").?, .{
+	const hashed_password = try argon2.strHash(input.get("password").?.string, .{
 		.allocator = req.arena,
 		.params = ARGON_CONFIG,
 	}, &pw_buf);
 
 	var hashed_email: ?[]const u8 = null;
-	if (input.get([]u8, "email")) |email| {
+	if (input.get("email")) |email| {
 		var email_buf: [128]u8 = undefined;
-		hashed_email = try argon2.strHash(email, .{
+		hashed_email = try argon2.strHash(email.string, .{
 			.allocator = req.arena,
 			.params = ARGON_CONFIG,
 		}, &email_buf);
@@ -88,10 +88,10 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		hashed_email,
 		true,
 		false,
-		input.get([]u8, "comment"),
-		input.get(u32, "load"),
-		input.get([]u8, "drink"),
-		input.get([]u8, "choice"),
+		if (input.get("comment")) |c| c.string else null,
+		if (input.get("load")) |l| l.u32 else null,
+		if (input.get("drink")) |d| d.string else null,
+		if (input.get("choice")) |c| c.string else null,
 	};
 
 	const app = env.app;
@@ -283,21 +283,21 @@ test "auth.register: success no email and no spam fields" {
 
 	{
 		const row = tc.getAuthRow("select * from users where id = ?1", .{user_id}).?;
-		try t.expectEqual(1, row.get(i64, "active").?);
-		try t.expectEqual(0, row.get(i64, "reset_password").?);
-		try t.expectEqual(null, row.get([]u8, "email"));
-		try t.expectEqual(null, row.get([]u8, "spam_js"));
-		try t.expectEqual(null, row.get([]u8, "spam_load"));
-		try t.expectEqual(null, row.get([]u8, "spam_hidden"));
-		try t.expectString("tea", row.get([]u8, "spam_drink").?);
-		try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-		try argon2.strVerify(row.get([]u8, "password").?, "reg-passwrd", .{.allocator = tc.arena});
+		try t.expectEqual(1, row.get("active").?.i64);
+		try t.expectEqual(0, row.get("reset_password").?.i64);
+		try t.expectEqual(true, row.get("email").?.isNull());
+		try t.expectEqual(true, row.get("spam_js").?.isNull());
+		try t.expectEqual(true, row.get("spam_load").?.isNull());
+		try t.expectEqual(true, row.get("spam_hidden").?.isNull());
+		try t.expectString("tea", row.get("spam_drink").?.string);
+		try t.expectDelta(std.time.timestamp(), row.get("created").?.i64, 2);
+		try argon2.strVerify(row.get("password").?.string, "reg-passwrd", .{.allocator = tc.arena});
 	}
 
 	{
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
-		try t.expectEqual(user_id, row.get(i64, "user_id").?);
-		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get(i64, "expires").?, 5);
+		try t.expectEqual(user_id, row.get("user_id").?.i64);
+		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get("expires").?.i64, 5);
 	}
 }
 
@@ -318,11 +318,11 @@ test "auth.register: success with email and all spam fields" {
 	try tc.web.expectStatus(200);
 
 	const row = tc.getAuthRow("select * from users where username = 'reg-user2'", .{}).?;
-	try argon2.strVerify(row.get([]u8, "email").?, "leto@aolium.dev", .{.allocator = tc.arena});
-	try t.expectString("testing", row.get([]u8, "spam_js").?);
-	try t.expectEqual(1690012313, row.get(i64, "spam_load").?);
-	try t.expectString("coffee", row.get([]u8, "spam_drink").?);
-	try t.expectString("should be empty", row.get([]u8, "spam_hidden").?);
+	try argon2.strVerify(row.get("email").?.string, "leto@aolium.dev", .{.allocator = tc.arena});
+	try t.expectString("testing", row.get("spam_js").?.string);
+	try t.expectEqual(1690012313, row.get("spam_load").?.i64);
+	try t.expectString("coffee", row.get("spam_drink").?.string);
+	try t.expectString("should be empty", row.get("spam_hidden").?.string);
 }
 
 test "auth.validateEmail" {

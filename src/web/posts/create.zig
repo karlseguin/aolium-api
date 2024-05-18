@@ -111,13 +111,13 @@ test "posts.create: simple" {
 	const id = try zul.UUID.parse(body.get("id").?.string);
 
 	const row = tc.getDataRow("select * from posts where id = ?1", .{id.bin}).?;
-	try t.expectEqual(3913, row.get(i64, "user_id").?);
-	try t.expectString("simple", row.get([]u8, "type").?);
-	try t.expectString("hello world!", row.get([]u8, "text").?);
-	try t.expectEqual(null, row.get([]u8, "title"));
-	try t.expectEqual(null, row.get([]u8, "tags"));
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
+	try t.expectEqual(3913, row.get("user_id").?.i64);
+	try t.expectString("simple", row.get("type").?.string);
+	try t.expectString("hello world!", row.get("text").?.string);
+	try t.expectEqual(true, row.get("title").?.isNull());
+	try t.expectEqual(true, row.get("tags").?.isNull());
+	try t.expectDelta(std.time.timestamp(), row.get("created").?.i64, 2);
+	try t.expectDelta(std.time.timestamp(), row.get("updated").?.i64, 2);
 }
 
 test "posts.create: link" {
@@ -132,13 +132,13 @@ test "posts.create: link" {
 	const id = try zul.UUID.parse(body.get("id").?.string);
 
 	const row = tc.getDataRow("select * from posts where id = ?1", .{id.bin}).?;
-	try t.expectEqual(3914, row.get(i64, "user_id").?);
-	try t.expectString("link", row.get([]u8, "type").?);
-	try t.expectString("https://img.ly/blog/ultimate-guide-to-ffmpeg/", row.get([]u8, "text").?);
-	try t.expectString("FFmpeg - The Ultimate Guide", row.get([]u8, "title").?);
-	try t.expectString("[\"tag1\",\"Tag2\"]", row.get([]u8, "tags").?);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
+	try t.expectEqual(3914, row.get("user_id").?.i64);
+	try t.expectString("link", row.get("type").?.string);
+	try t.expectString("https://img.ly/blog/ultimate-guide-to-ffmpeg/", row.get("text").?.string);
+	try t.expectString("FFmpeg - The Ultimate Guide", row.get("title").?.string);
+	try t.expectString("[\"tag1\",\"Tag2\"]", row.get("tags").?.string);
+	try t.expectDelta(std.time.timestamp(), row.get("created").?.i64, 2);
+	try t.expectDelta(std.time.timestamp(), row.get("updated").?.i64, 2);
 }
 
 test "posts.create: long" {
@@ -153,10 +153,10 @@ test "posts.create: long" {
 	const id = try zul.UUID.parse(body.get("id").?.string);
 
 	const row = tc.getDataRow("select * from posts where id = ?1", .{id.bin}).?;
-	try t.expectEqual(3914, row.get(i64, "user_id").?);
-	try t.expectString("long", row.get([]u8, "type").?);
-	try t.expectString("Some content\nOk", row.get([]u8, "text").?);
-	try t.expectString("A Title", row.get([]u8, "title").?);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "updated").?, 2);
+	try t.expectEqual(3914, row.get("user_id").?.i64);
+	try t.expectString("long", row.get("type").?.string);
+	try t.expectString("Some content\nOk", row.get("text").?.string);
+	try t.expectString("A Title", row.get("title").?.string);
+	try t.expectDelta(std.time.timestamp(), row.get("created").?.i64, 2);
+	try t.expectDelta(std.time.timestamp(), row.get("updated").?.i64, 2);
 }

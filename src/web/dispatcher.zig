@@ -30,7 +30,7 @@ pub const Dispatcher = struct {
 		const start_time = std.time.milliTimestamp();
 
 		const app = self.app;
-		const encoded_request_id = encodeRequestId(app.config.instance_id, @atomicRmw(u32, &request_id, .Add, 1, .Monotonic));
+		const encoded_request_id = encodeRequestId(app.config.instance_id, @atomicRmw(u32, &request_id, .Add, 1, .monotonic));
 		var logger = logz.logger().stringSafe("$rid", &encoded_request_id).multiuse();
 
 		var env = Env{

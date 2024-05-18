@@ -17,10 +17,10 @@ pub fn init(builder: *validate.Builder(void)) void {
 }
 
 pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
-	const input = try web.validateQuery(req, &[_][]const u8{"username"}, count_validator, env);
+	const input = try web.validateQuery(req, count_validator, env);
 
 	const app = env.app;
-	const user = try app.getUserFromUsername(input.get([]u8, "username").?) orelse {
+	const user = try app.getUserFromUsername(input.get("username").?.string) orelse {
 		return web.notFound(res, "username doesn't exist");
 	};
 

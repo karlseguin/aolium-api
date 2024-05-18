@@ -12,7 +12,7 @@ const Config = aolium.Config;
 
 const Allocator = std.mem.Allocator;
 const ValidatorPool = @import("validate").Pool;
-const BufferPool = @import("buffer").Pool;
+const BufferPool = @import("zul").StringBuilder.Pool;
 
 const DATA_POOL_COUNT = if (aolium.is_test) 1 else 64;
 const DATA_POOL_MASK = DATA_POOL_COUNT - 1;
@@ -28,7 +28,7 @@ pub const App = struct {
 	data_pools: [DATA_POOL_COUNT]zqlite.Pool,
 
 	// a pool of string builders
-	buffers: BufferPool,
+	buffers: *BufferPool,
 
 	// pool of validator, accessed through the env
 	validators: ValidatorPool(void),

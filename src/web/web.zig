@@ -123,16 +123,14 @@ pub fn validateJson(req: *httpz.Request, v: *validate.Object(void), env: *Env) !
 
 // This isn't great, but we turn out querystring args into a typed.Map where every
 // value is a typed.Value.string. Validators can be configured to parse strings.
-pub fn validateQuery(req: *httpz.Request, args: []const []const u8, v: *validate.Object(void), env: *Env) !typed.Map {
-	const query = try req.query();
+pub fn validateQuery(req: *httpz.Request, v:  *validate.Object(void), env: *Env) !typed.Map {
+	const q = try req.query();
 
 	var map = typed.Map.init(req.arena);
-	try map.m.ensureTotalCapacity(@intCast(args.len));
+	try map.ensureTotalCapacity(@intCast(q.len));
 
-	for (args) |key| {
-		if (query.get(key)) |value| {
-			map.m.putAssumeCapacity(key, .{.string = value});
-		}
+	for (q.keys[0..q.len], q.values[0..q.len]) |name, value| {
+		try map.putAssumeCapacity(name, value);
 	}
 
 	var validator = try env.validator();

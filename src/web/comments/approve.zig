@@ -106,5 +106,5 @@ test "posts.approve: success" {
 	try tc.web.expectStatus(204);
 
 	const row = tc.getDataRow("select approved from comments where id = ?1", .{(try zul.UUID.parse(cid)).bin}).?;
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "approved").?, 2);
+	try t.expectDelta(std.time.timestamp(), row.get("approved").?.i64, 2);
 }

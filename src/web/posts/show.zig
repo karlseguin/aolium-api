@@ -20,17 +20,17 @@ pub fn init(builder: *validate.Builder(void)) void {
 }
 
 pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
-	const input = try web.validateQuery(req, &[_][]const u8{"username", "html", "comments"}, show_validator, env);
+	const input = try web.validateQuery(req, show_validator, env);
 	const post_id = try web.parseUUID("id", req.params.get("id").?, env);
 
 	const app = env.app;
-	const username = input.get([]u8, "username").?;
+	const username = input.get( "username").?.string;
 	const user = try app.getUserFromUsername(username) orelse {
 		return web.notFound(res, "username doesn't exist");
 	};
 
-	const html = input.get(bool, "html") orelse false;
-	const comments = input.get(bool, "comments") orelse false;
+	const html = if (input.get("html")) |i| i.bool else false;
+	const comments = if (input.get("comments")) |i| i.bool else false;
 	const fetcher = PostFetcher.init(req.arena, env, post_id, user, html, comments);
 
 	const cached_response = (try app.http_cache.fetch(*const PostFetcher, &fetcher.cache_key, getPost, &fetcher, .{.ttl = 300})) orelse {
@@ -77,8 +77,8 @@ fn getPost(fetcher: *const PostFetcher, _: []const u8) !?web.CachedResponse {
 	const post_id = fetcher.post_id;
 
 	const app = env.app;
-	var sb = try app.buffers.acquireWithAllocator(fetcher.arena);
-	defer app.buffers.release(sb);
+	var sb = try app.buffers.acquire();
+	defer sb.release();
 
 	const prefix = "{\"post\":\n";
 	try sb.write(prefix);

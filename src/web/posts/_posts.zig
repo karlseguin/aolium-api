@@ -58,22 +58,22 @@ pub const Post = struct {
 
 	pub fn create(arena: Allocator, input: typed.Map) !Post {
 		// type and text are always required
-		const tpe = input.get([]u8, "type").?;
-		var text = input.get([]u8, "text");
+		const tpe = input.get("type").?.string;
+		var text: ?[]const u8 = if (input.get("text")) |_t| _t.string else null;
 		if (std.mem.eql(u8, tpe, "link")) {
 			text = try normalizeLink(arena, text.?);
 		}
 
 		var tags: ?[]const u8 = null;
-		if (input.get(typed.Array, "tags")) |tgs| {
-			tags = try std.json.stringifyAlloc(arena, tgs.items, .{});
+		if (input.get("tags")) |tgs| {
+			tags = try std.json.stringifyAlloc(arena, tgs.array.items, .{});
 		}
 
 		return .{
 			.type = tpe,
 			.text = text.?,
 			.tags = tags,
-			.title = input.get([]u8, "title"),
+			.title = if (input.get("title")) |title| title.string else null,
 		};
 	}
 
@@ -114,10 +114,13 @@ fn validatePost(optional: ?typed.Map, ctx: *validate.Context(void)) !?typed.Map 
 		simple, link, long
 	};
 
-	const string_type = input.get([]u8, "type") orelse return null;
+	const string_type = input.get("type") orelse return null;
+	if (std.meta.activeTag(string_type) == .null) {
+		return null;
+	}
 
 	// if type isn't valid, this will fail anyways, so return early
-	const post_type = std.meta.stringToEnum(PostType, string_type) orelse return null;
+	const post_type = std.meta.stringToEnum(PostType, string_type.string) orelse return null;
 
 	switch (post_type) {
 		.simple => _ = return simple_validator.validate(input, ctx),

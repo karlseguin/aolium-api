@@ -22,7 +22,7 @@ pub fn init(builder: *validate.Builder(void)) void {
 
 pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !void {
 	const input = try web.validateJson(req, login_validator, env);
-	const username = input.get([]u8, "username").?;
+	const username = input.get("username").?.string;
 
 	// load the user row
 	const sql =
@@ -47,7 +47,7 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	{
 		// verify the password
 		const hashed = row.text(1);
-		argon2.strVerify(hashed, input.get([]u8, "password").?, .{.allocator = req.arena}) catch {
+		argon2.strVerify(hashed, input.get("password").?.string, .{.allocator = req.arena}) catch {
 			return web.notFound(res, "username or password are invalid");
 		};
 	}
@@ -174,8 +174,8 @@ test "auth.login" {
 		const session_id = body.get("session_id").?.string;
 
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
-		try t.expectEqual(user_id1, row.get(i64, "user_id").?);
-		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get(i64, "expires").?, 5);
+		try t.expectEqual(user_id1, row.get("user_id").?.i64);
+		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get("expires").?.i64, 5);
 	}
 
 	{
@@ -190,7 +190,7 @@ test "auth.login" {
 		const session_id = body.get("session_id").?.string;
 
 		const row = tc.getAuthRow("select user_id, expires from sessions where id = ?1", .{session_id}).?;
-		try t.expectEqual(user_id2, row.get(i64, "user_id").?);
-		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get(i64, "expires").?, 5);
+		try t.expectEqual(user_id2, row.get("user_id").?.i64);
+		try t.expectDelta(std.time.timestamp() + 2_592_000, row.get("expires").?.i64, 5);
 	}
 }

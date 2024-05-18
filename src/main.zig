@@ -37,7 +37,7 @@ pub fn main() !void {
 	try @import("web/web.zig").start(&app);
 }
 
-fn parseArgs(allocator: Allocator) !aolium.Config {
+fn parseArgs(allocator: Allocator) !Config {
 	var args = try zul.CommandLineArgs.parse(allocator);
 	defer args.deinit();
 
@@ -45,7 +45,7 @@ fn parseArgs(allocator: Allocator) !aolium.Config {
 
 	if (args.contains("version")) {
 		try std.io.getStdOut().writer().print("{s}", .{aolium.version});
-		std.os.exit(0);
+		std.process.exit(0);
 	}
 
 	var port: u16 = 8517;
@@ -59,7 +59,7 @@ fn parseArgs(allocator: Allocator) !aolium.Config {
 	if (args.get("port")) |value| {
 		port = std.fmt.parseInt(u16, value, 10) catch {
 			try stdout.print("port must be a positive integer\n", .{});
-			std.os.exit(2);
+			std.process.exit(2);
 		};
 	}
 
@@ -70,14 +70,14 @@ fn parseArgs(allocator: Allocator) !aolium.Config {
 	if (args.get("log_level")) |value| {
 		log_level = logz.Level.parse(value) orelse {
 			try stdout.print("invalid log_level value\n", .{});
-			std.os.exit(2);
+			std.process.exit(2);
 		};
 	}
 
 	if (args.get("instance_id")) |value| {
 		instance_id = std.fmt.parseInt(u8, value, 10) catch {
 			try stdout.print("instance_id must be an integer between 0 and 255r\n", .{});
-			std.os.exit(2);
+			std.process.exit(2);
 		};
 	}
 
@@ -96,7 +96,7 @@ fn parseArgs(allocator: Allocator) !aolium.Config {
 		root = try allocator.dupeZ(u8, path);
 	} else {
 		var buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
-		const cwd = try std.os.getcwd(&buffer);
+		const cwd = try std.posix.getcwd(&buffer);
 		root = try std.fs.path.joinZ(allocator, &[_][]const u8{cwd, path});
 	}
 

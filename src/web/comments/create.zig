@@ -22,16 +22,16 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	const post_id = try web.parseUUID("id", req.params.get("id").?, env);
 
 	const app = env.app;
-	const post_author = try app.getUserFromUsername(input.get([]u8, "username").?) orelse {
+	const post_author = try app.getUserFromUsername(input.get("username").?.string) orelse {
 		return web.notFound(res, "username doesn't exist");
 	};
 	const post_author_id = post_author.id;
 
-	const comment = input.get([]u8, "comment").?;
+	const comment = input.get("comment").?.string;
 
 	var approved: ?i64 = null;
 	var commentor_id: ?i64 = null;
-	var name = input.get([]u8, "name");
+	var name: ?[]const u8 = null;
 
 	if (env.user) |u| {
 		name = u.username;
@@ -39,6 +39,8 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 		if (u.id == post_author_id) {
 			approved = std.time.timestamp();
 		}
+	} else if (input.get("name")) |n| {
+		name = n.string;
 	}
 
 	const comment_id = zul.UUID.v4();
@@ -130,18 +132,18 @@ test "comments.create: anonymous" {
 
 	tc.web.param("id", post_id);
 	tc.web.json(.{.comment = "I think you are wrong and stupid!", .username = "anon-comment-1"});
-try handler(tc.env(), tc.web.req, tc.web.res);
+	try handler(tc.env(), tc.web.req, tc.web.res);
 
 	const body = (try tc.web.getJson()).object;
 	const id = try zul.UUID.parse(body.get("id").?.string);
 
 	const row = tc.getDataRow("select * from comments where id = ?1", .{&id.bin}).?;
-	try t.expectEqual(null, row.get(i64, "user_id"));
-	try t.expectEqual(null, row.get([]u8, "name"));
-	try t.expectEqual(null, row.get(i64, "approved"));
-	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get([]u8, "post_id").?);
-	try t.expectString("I think you are wrong and stupid!", row.get([]u8, "comment").?);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
+	try t.expectEqual(true, row.get("user_id").?.isNull());
+	try t.expectEqual(true, row.get("name").?.isNull());
+	try t.expectEqual(true, row.get("approved").?.isNull());
+	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get("post_id").?.string);
+	try t.expectString("I think you are wrong and stupid!", row.get("comment").?.string);
+	try t.expectDelta(std.time.timestamp(), row.get("created").?.i64, 2);
 }
 
 test "comments.create: from non-author user" {
@@ -161,12 +163,12 @@ test "comments.create: from non-author user" {
 	const id = try zul.UUID.parse(body.get("id").?.string);
 
 	const row = tc.getDataRow("select * from comments where id = ?1", .{&id.bin}).?;
-	try t.expectEqual(uid1, row.get(i64, "user_id"));
-	try t.expectString("user-comment-2a", row.get([]u8, "name").?);
-	try t.expectString("no you are", row.get([]u8, "comment").?);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get([]u8, "post_id").?);
-	try t.expectEqual(null, row.get(i64, "approved"));
+	try t.expectEqual(uid1, row.get("user_id").?.i64);
+	try t.expectString("user-comment-2a", row.get("name").?.string);
+	try t.expectString("no you are", row.get("comment").?.string);
+	try t.expectDelta(std.time.timestamp(), row.get("created").?.i64, 2);
+	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get("post_id").?.string);
+	try t.expectEqual(true, row.get("approved").?.isNull());
 }
 
 test "comments.create: from author" {
@@ -186,10 +188,10 @@ test "comments.create: from author" {
 	const id = try zul.UUID.parse(body.get("id").?.string);
 
 	const row = tc.getDataRow("select * from comments where id = ?1", .{&id.bin}).?;
-	try t.expectEqual(uid1, row.get(i64, "user_id"));
-	try t.expectString("author-comment-1", row.get([]u8, "name").?);
-	try t.expectString("no you are", row.get([]u8, "comment").?);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "created").?, 2);
-	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get([]u8, "post_id").?);
-	try t.expectDelta(std.time.timestamp(), row.get(i64, "approved").?, 2);
+	try t.expectEqual(uid1, row.get("user_id").?.i64);
+	try t.expectString("author-comment-1", row.get("name").?.string);
+	try t.expectString("no you are", row.get("comment").?.string);
+	try t.expectDelta(std.time.timestamp(), row.get("created").?.i64, 2);
+	try t.expectSlice(u8, &(try zul.UUID.parse(post_id)).bin, row.get("post_id").?.string);
+	try t.expectDelta(std.time.timestamp(), row.get("approved").?.i64, 2);
 }
