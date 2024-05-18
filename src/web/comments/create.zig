@@ -12,7 +12,7 @@ var create_validator: *validate.Object(void) = undefined;
 pub fn init(builder: *validate.Builder(void)) void {
 	create_validator = builder.object(&.{
 		builder.field("name", builder.string(.{.trim = true, .max = 100})),
-		builder.field("comment", builder.string(.{.required = true, .trim = true, .max = 2000})),
+		builder.field("comment", builder.string(.{.required = true, .trim = true, .max = 2000, .function = validateComment})),
 		builder.field("username", builder.string(.{.required = true, .max = aolium.MAX_USERNAME_LEN, .trim = true})),
 	}, .{});
 }
@@ -74,6 +74,30 @@ pub fn handler(env: *aolium.Env, req: *httpz.Request, res: *httpz.Response) !voi
 	return res.json(.{.id = comment_id}, .{});
 }
 
+fn validateComment(value: ?[]const u8, context: *validate.Context(void)) !?[]const u8 {
+	const comment = value.?;
+	const pos = std.ascii.indexOfIgnoreCase(comment, "http") orelse return comment;
+	if (pos + 10 > comment.len) {
+		return comment;
+	}
+
+	var next = pos + 4;
+	if (comment[next] == 's') {
+			next += 1;
+	}
+
+	if (std.mem.eql(u8, comment[next..next+3], "://") == false) {
+		return comment;
+	}
+
+	try context.add(.{
+		.code = aolium.val.LINK_IN_COMMENT,
+		.err = "links are not allowed in comments",
+	});
+
+	return comment;
+}
+
 const t = aolium.testing;
 test "comments.create: empty body" {
 	var tc = t.context(.{});
@@ -121,6 +145,30 @@ test "comments.create: unknown post" {
 	tc.web.json(.{.comment = "It", .username = "common-unknown-post"});
 	try handler(tc.env(), tc.web.req, tc.web.res);
 	try tc.web.expectStatus(404);
+}
+
+test "comments.create: link in comment" {
+	var tc = t.context(.{});
+	defer tc.deinit();
+
+	const uid1 = tc.insert.user(.{.username = "anon-comment-1"});
+	const post_id = tc.insert.post(.{.user_id = uid1, });
+
+	{
+		tc.web.param("id", post_id);
+		tc.web.json(.{.comment = "my spam http://www.example.com", .username = "anon-comment-1"});
+		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
+		try tc.expectInvalid(.{.code = aolium.val.LINK_IN_COMMENT, .field = "comment"});
+	}
+
+	{
+		// https
+		tc.reset();
+		tc.web.param("id", post_id);
+		tc.web.json(.{.comment = "my spam https://www.example.com", .username = "anon-comment-1"});
+		try t.expectError(error.Validation, handler(tc.env(), tc.web.req, tc.web.res));
+		try tc.expectInvalid(.{.code = aolium.val.LINK_IN_COMMENT, .field = "comment"});
+	}
 }
 
 test "comments.create: anonymous" {
